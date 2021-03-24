@@ -79,3 +79,14 @@ create table Pay_slips (
   num_work_hours numeric,
   num_work_days numeric,
   primary key(payment_date, eid));
+
+create table Rooms (
+  room_id		char(20) primary key,
+  location 		text,
+  seating capacity 	integer);
+
+create table Sessions (
+  session_id	char(20),
+  date 		text,
+  start_time 	text,
+  end_time	text);

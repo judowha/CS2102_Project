@@ -103,31 +103,52 @@ create table Sessions (
 
 create table Course_areas (
   name      char(20) primary key,
-)
+);
               
-create Table Buys (
-  buy_date date,
-  cust_id CHAR(20),
-  number INTEGER,
-  package_id char(20), 
-  num_remaining_redemptions INTEGER,
-  FOREIGN key (cust_id) REFERENCES Customers on DELETe CASCADE on UPDATE CASCADE,
-  FOREIGN key (number) REFERENCES Credit_cards on DELETe CASCADE on UPDATE CASCADE,
-  FOREIGN key (package_id) REFERENCES Course_packegeson on DELETe CASCADE on UPDATE CASCADE,
-  PRIMARY KEy (buy_date,cust_id, number, package_id)
-);
+create table Buys (
+  buy_date   		              date,
+  cust_id    		              char(20),
+  number     		              integer,
+  package_id  		            char(20), 
+  num_remaining_redemptions   integer,
+  foreign key (cust_id) references Customers on delete cascade on update cascade,
+  foreign key (number) references Credit_cards on delete cascade on update cascade,
+  foreign key (package_id) references Course_packeges on delete cascade on update cascade,
+  primary key (buy_date,cust_id, number, package_id));
 
-create Table Redeems (
+create table Redeems (
   redeem_date date,
-  cust_id CHAR(20),
-  number INTEGER,
-  package_id char(20), 
-  sid CHAR(20),
-  FOREIGN key (cust_id) REFERENCES Customers on DELETe CASCADE on UPDATE CASCADE,
-  FOREIGN key (number) REFERENCES Credit_cards on DELETe CASCADE on UPDATE CASCADE,
-  FOREIGN key (package_id) REFERENCES Course_packegeson on DELETe CASCADE on UPDATE CASCADE,
-  FOREIGN key (sid) REFERENCES Sessions on DELETe CASCADE on UPDATE CASCADE,
-  PRIMARY KEy (cust_id, number, package_id)
+  cust_id     char(20),
+  number      integer,
+  package_id  char(20), 
+  sid         char(20),
+  foreign key (cust_id) references Customers on delete cascade on update cascade,
+  foreign key (number) references Credit_cards on delete cascade on update cascade,
+  foreign key (package_id) references Course_packeges on delete cascade on update cascade,
+  foreign key (sid) references Sessions on delete cascade on update cascade,
+  primary key (cust_id, number, package_id));
+
+
+create table Conducts (
+  room_id       char(20),
+  session_id    char(20),
+  primary key(room_id, session_id),
+  foreign key (room_id) references Rooms on delete cascade,
+  foreign key (session_id) references Sessions on delete cascade
 );
 
+create table Specializes (
+  eid   char(20),
+  name  char(20),
+  primary key(eid, name),
+  foreign key (name) references Course_areas on delete cascade,
+  foreign key (eid) references Employees on delete cascade
+);
 
+create table In (
+  name          char(20),
+  course_id     char(20);
+  primary key(course_id, name),
+  foreign key (name) references Course_areas on delete cascade,
+  foreign key (course_id) references Courses on delete cascade
+);

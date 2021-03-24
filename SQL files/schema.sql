@@ -100,3 +100,7 @@ create table Sessions (
   primary key (session_id, launch_date, course_id),
   foreign key (launch_date) references Offerings on delete cascade,
   foreign key (course_id) references Courses on delete cascade);
+
+create table Course_areas (
+  name      char(20) primary key,
+)

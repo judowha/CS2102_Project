@@ -94,15 +94,15 @@ create table Sessions (
   session_id	char(20),
   date 		    text,
   start_time 	text,
-  end_time	    text
-  launch_date   date
-  course_id     char(20)
+  end_time	    text,
+  launch_date   date,
+  course_id     char(20),
   primary key (session_id, launch_date, course_id),
   foreign key (launch_date) references Offerings on delete cascade,
   foreign key (course_id) references Courses on delete cascade);
 
 create table Course_areas (
-  name      char(20) primary key,
+  name      char(20) primary key
 );
               
 create table Buys (
@@ -145,10 +145,44 @@ create table Specializes (
   foreign key (eid) references Employees on delete cascade
 );
 
-create table Course_in (
+create table Cours_in (
   name          char(20),
-  course_id     char(20);
+  course_id     char(20),
   primary key(course_id, name),
   foreign key (name) references Course_areas on delete cascade,
   foreign key (course_id) references Courses on delete cascade
+);
+
+create table Registers(
+  sid char(20),
+  course_id char(20),
+  launch_date date,
+  cust_id char(20),
+  number text,
+  registers_date date,
+  FOREIGN key (sid,launch_date,course_id) REFERENCES Sessions on delete CASCADE on UPDATE CASCADE,
+  FOREIGN key (number)REFERENCES Credit_cards on delete CASCADE on UPDATE CASCADE,
+  FOREIGN key (cust_id)REFERENCES Customers on delete CASCADE on UPDATE CASCADE,
+  PRIMARY key (sid, course_id, launch_date,cust_id,number,registers_date)
+
+);
+
+create table Owns(
+  number text,
+  cust_id char(20) not null,
+  from_date date,
+  FOREIGN key (number)REFERENCES Credit_cards on delete CASCADE on UPDATE CASCADE,
+  FOREIGN key (cust_id)REFERENCES Customers on delete CASCADE on UPDATE CASCADE,
+  PRIMARY key (number)
+);
+
+create table Cancels(
+  sid char(20),
+  course_id char(20),
+  launch_date date,
+  cust_id char(20),
+  cancels_date date,
+  FOREIGN key (sid, course_id,launch_date) REFERENCES Sessions on DELETE CASCADE on UPDATE CASCADE,
+  FOREIGN key (cust_id) REFERENCES Customers on DELETE CASCADE on UPDATE CASCADE,
+  PRIMARY key (sid, course_id, launch_date, cust_id, cancels_date)
 );

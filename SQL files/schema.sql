@@ -145,7 +145,7 @@ create table Specializes (
   foreign key (eid) references Employees on delete cascade
 );
 
-create table In (
+create table Course_in (
   name          char(20),
   course_id     char(20);
   primary key(course_id, name),

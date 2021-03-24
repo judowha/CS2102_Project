@@ -30,6 +30,11 @@ create table Customers (
   email   text,
   address text);
 
+create table Credit_cards (
+  number      text primary key,
+  expiry_date date,
+  CVV         integer);
+  
 create table Employees (
   eid         char(20) primary key,
   name        char(30),

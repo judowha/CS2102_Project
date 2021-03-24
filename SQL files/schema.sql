@@ -81,12 +81,17 @@ create table Pay_slips (
   primary key(payment_date, eid));
 
 create table Rooms (
-  room_id		char(20) primary key,
-  location 		text,
+  room_id		    char(20) primary key,
+  location 		    text,
   seating capacity 	integer);
 
 create table Sessions (
   session_id	char(20),
-  date 		text,
+  date 		    text,
   start_time 	text,
-  end_time	text);
+  end_time	    text
+  launch_date   date
+  course_id     char(20)
+  primary key (session_id, launch_date, course_id),
+  foreign key (launch_date) references Offerings on delete cascade,
+  foreign key (course_id) references Courses on delete cascade);

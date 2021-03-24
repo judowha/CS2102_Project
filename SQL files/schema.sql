@@ -1,47 +1,41 @@
 create table Courses (
-  cid         char(20) primary key,
+  course_id   char(20) primary key,
   title       text unique,
   description text,
-  area        text
   duration    integer);
 
 create table Offerings (
-  fee               float，
-  target_num        integer,
-  launch_date       date,
-  register_deadline timestamp,
-  capacity          integer,
-  start_date        date,
-  end_date          date,
-  status            text
-  eid               char(20) not null,
+  launch_date                 date primary key,
+  fees                        float，
+  target_number_registrations integer,
+  registration_deadline       timestamp,
+  seating_capacity            integer,
+  start_date                  date,
+  end_date                    date,
+  eid                         char(20) not null,
   foreign key(eid) references Administrators);
   
-create table CoursePakages (
-  pid         char(20) primary key,
-  price       float,
-  number      integer,
-  name        text,
-  start_date  date,
-  end_date    date
-  status      text);
+create table Course_packages (
+  package_id              char(20) primary key,
+  price                   float,
+  num_free_registrations  integer,
+  name                    text,
+  sale_start_date         date,
+  sale_end_date           date);
   
 create table Customers (
-  cid         char(20) primary key,
-  name        char(30),
-  phone       text,
-  email       text,
-  home        text,
-  card_info   ?);
-
-
+  cust_id char(20) primary key,
+  name    char(30),
+  phone   text,
+  email   text,
+  address text);
 
 create table Employees (
   eid         char(20) primary key,
   name        char(30),
   phone       text,
   email       text,
-  home        text,
+  address     text,
   join_date   date,
   depart_date date);
 

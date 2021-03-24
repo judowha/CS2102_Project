@@ -13,7 +13,9 @@ create table Offerings (
   capacity          integer,
   start_date        date,
   end_date          date,
-  status            text);
+  status            text
+  eid               char(20) not null,
+  foreign key(eid) references Administrators);
   
 create table CoursePakages (
   pid         char(20) primary key,
@@ -74,3 +76,12 @@ create table Administrators (
 create table Managers (
   eid char(20) primary key references Full_time_Emp
       on delete cascade);
+
+create table Pay_slips (
+  payment_date date,
+  eid char(20) references Employees
+      on delete cascade,
+  amount integer,
+  num_work_hours numeric,
+  num_work_days numeric,
+  primary key(payment_date, eid));

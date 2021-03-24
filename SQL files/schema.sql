@@ -103,7 +103,7 @@ create table Sessions (
 
 create table Course_areas (
   name      char(20) primary key,
-)
+);
               
 create Table Buys (
   buy_date date,
@@ -130,4 +130,26 @@ create Table Redeems (
   PRIMARY KEy (cust_id, number, package_id)
 );
 
+create table Conducts (
+  room_id       char(20),
+  session_id    char(20),
+  primary key(room_id, session_id),
+  foreign key (room_id) references Rooms on delete cascade,
+  foreign key (session_id) references Sessions on delete cascade
+);
 
+create table Specializes (
+  eid   char(20),
+  name  char(20),
+  primary key(eid, name),
+  foreign key (name) references Course_areas on delete cascade,
+  foreign key (eid) references Employees on delete cascade
+);
+
+create table In (
+  name          char(20),
+  course_id     char(20);
+  primary key(course_id, name),
+  foreign key (name) references Course_areas on delete cascade,
+  foreign key (course_id) references Courses on delete cascade
+);

@@ -30,7 +30,7 @@ create table Customers (
   phone       text,
   email       text,
   home        text,
-  card_info   ?);
+   );
 
 
 
@@ -74,3 +74,42 @@ create table Administrators (
 create table Managers (
   eid char(20) primary key references Full_time_Emp
       on delete cascade);
+
+
+Create table Credit_cards(
+  number INTEGER PRIMARY KEY,
+  CVV INTEGER,
+  expiry_date TEXT 
+);
+
+create Table Buys (
+  buy_date date,
+  cust_id CHAR(20),
+  number INTEGER,
+  package_id char(20), 
+  num_remaining_redemptions INTEGER,
+  FOREIGN key (cust_id) REFERENCES Customers on DELETe CASCADE on UPDATE CASCADE,
+  FOREIGN key (number) REFERENCES Credit_cards on DELETe CASCADE on UPDATE CASCADE,
+  FOREIGN key (package_id) REFERENCES Course_packegeson on DELETe CASCADE on UPDATE CASCADE,
+  PRIMARY KEy (buy_date,cust_id, number, package_id)
+);
+
+create Table Redeems (
+  redeem_date date,
+  cust_id CHAR(20),
+  number INTEGER,
+  package_id char(20), 
+  sid CHAR(20),
+  FOREIGN key (cust_id) REFERENCES Customers on DELETe CASCADE on UPDATE CASCADE,
+  FOREIGN key (number) REFERENCES Credit_cards on DELETe CASCADE on UPDATE CASCADE,
+  FOREIGN key (package_id) REFERENCES Course_packegeson on DELETe CASCADE on UPDATE CASCADE,
+  FOREIGN key (sid) REFERENCES Sessions on DELETe CASCADE on UPDATE CASCADE,
+  PRIMARY KEy (cust_id, number, package_id)
+);
+
+
+
+
+
+
+

@@ -89,13 +89,13 @@ create table Rooms (
   seating capacity   integer);
 
 create table Sessions (
+
   session_id	char(20),
   date 		    text,
   start_time 	text,
   end_time	    text,
   launch_date   date,
   course_id     char(20),
-  primary key (session_id, launch_date, course_id),
   foreign key (launch_date) references Offerings on delete cascade,
   foreign key (course_id)   references Courses   on delete cascade,
   primary key (session_id, launch_date, course_id));

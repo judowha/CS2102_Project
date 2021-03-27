@@ -6,7 +6,7 @@ create table Courses (
 
 create table Offerings (
   launch_date                   date primary key,
-  fees                          double precision，
+  fees                          double precision,
   target_number_registrations   integer,
   registration_deadline         timestamp,
   seating_capacity              integer,

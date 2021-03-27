@@ -17,7 +17,7 @@ create table Offerings (
   
 create table Course_packages (
   package_id                char(20) primary key,
-  price                     float,
+  price                     double precision,
   num_free_registrations    integer,
   name                      text,
   sale_start_date           date,
@@ -86,7 +86,7 @@ create table Pay_slips (
 create table Rooms (
   room_id		         char(20) primary key,
   location 		       text,
-  seating capacity   integer);
+  seating_capacity   integer);
 
 create table Sessions (
 

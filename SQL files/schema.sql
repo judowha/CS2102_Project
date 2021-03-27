@@ -6,7 +6,7 @@ create table Courses (
 
 create table Offerings (
   launch_date                   date primary key,
-  fees                          float，
+  fees                          double precision,
   target_number_registrations   integer,
   registration_deadline         timestamp,
   seating_capacity              integer,
@@ -17,7 +17,7 @@ create table Offerings (
   
 create table Course_packages (
   package_id                char(20) primary key,
-  price                     float,
+  price                     double precision,
   num_free_registrations    integer,
   name                      text,
   sale_start_date           date,
@@ -60,11 +60,11 @@ create table Instructors (
 
 create table Part_time_instructors (
   eid char(20) primary key,
-  foreign key (eid) references Part_time_Emp references Instructors on delete cascade);
+  foreign key (eid) references Instructors on delete cascade);
 
 create table Full_time_instructors (
   eid char(20) primary key,
-  foreign key (eid) references Full_time_Emp references Instructors on delete cascade);
+  foreign key (eid) references Instructors on delete cascade);
 
 create table Administrators (
   eid char(20) primary key,
@@ -86,7 +86,7 @@ create table Pay_slips (
 create table Rooms (
   room_id		         char(20) primary key,
   location 		       text,
-  seating capacity   integer);
+  seating_capacity   integer);
 
 create table Sessions (
 

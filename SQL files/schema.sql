@@ -43,15 +43,19 @@ create table Courses (
   duration      integer);
 
 create table Offerings (
-  launch_date                   date primary key,
+  launch_date                   date,
+  course_id						char(20),
   fees                          double precision,
   target_number_registrations   integer,
   registration_deadline         timestamp,
   seating_capacity              integer,
   start_date                    date,
   end_date                      date,
-  eid                           char(20) not null,
-  foreign key(eid) references Administrators);
+  eid                           char(20) not null, 
+  primary key (launch_date, course_id);
+  foreign key(eid) references Administrators on delete cascade,
+  foreign key(course_id) references courses on delete cascade
+);
   
 create table Course_packages (
   package_id                char(20) primary key,
@@ -146,7 +150,7 @@ create table Conducts (
 
 
 create table Specializes (
-  eid     char(20),
+  eid     char(20) not NULL,
   name    char(20),
   primary key(eid, name),
   foreign key (name) references Course_areas on delete cascade,
@@ -193,4 +197,21 @@ create table Cancels(
   FOREIGN key (cust_id) REFERENCES Customers on DELETE CASCADE on UPDATE CASCADE,
   PRIMARY key (session_id, course_id, launch_date, cust_id, cancels_date)
 );
+
+create table Manage(
+	name char(20) primary key,
+	eid text,
+	foreign key (name) references course_area on delete cascade on update cascade,
+	foreign key (eid) references managers on delete cascade on update cascade
+);
+
+create table handles(
+	launch_date 		date,
+	course_id 			char(20),
+	eid					char(20),
+	primary key (launch_date,course_id),
+	foreign key (launch_date,course_id) references offerings on delete cascade,
+	foreign key (eid) references administrators on delete cascade
+);
+
 

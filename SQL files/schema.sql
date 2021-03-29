@@ -23,11 +23,13 @@ create table Instructors (
 
 create table Part_time_instructors (
   eid char(20) primary key,
-  foreign key (eid) references Instructors on delete cascade);
+  foreign key (eid) references Instructors on delete cascade,
+  foreign key (eid) references Part_time_Emp on delete cascade);
 
 create table Full_time_instructors (
   eid char(20) primary key,
-  foreign key (eid) references Instructors on delete cascade);
+  foreign key (eid) references Instructors on delete cascade,
+  foreign key (eid) references Full_time_Emp on delete cascade);
 
 create table Administrators (
   eid char(20) primary key,
@@ -36,6 +38,7 @@ create table Administrators (
 create table Managers (
   eid char(20) primary key,
   foreign key (eid) references Full_time_Emp on delete cascade);
+  
 create table Courses (
   course_id     char(20) primary key,
   title         text unique,
@@ -204,14 +207,4 @@ create table Manage(
 	foreign key (name) references course_area on delete cascade on update cascade,
 	foreign key (eid) references managers on delete cascade on update cascade
 );
-
-create table handles(
-	launch_date 		date,
-	course_id 			char(20),
-	eid					char(20),
-	primary key (launch_date,course_id),
-	foreign key (launch_date,course_id) references offerings on delete cascade,
-	foreign key (eid) references administrators on delete cascade
-);
-
 

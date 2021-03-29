@@ -81,9 +81,8 @@ $$ language plpgsql;
 
 
 
-
 create or replace function pay_salary()
-return table(eid char(20), name char(30), status char(10), num_work_days numeric, num_work_hours numeric, hourly_rate numeric, monthly_salary numeric, salary_amount numeric) as $$
+returns table(eid char(20), name char(30), status char(10), num_work_days numeric, num_work_hours numeric, hourly_rate numeric, monthly_salary numeric, salary_amount numeric) as $$
 declare
   day_in_month integer;
   curs cursor for (select * from Employees order by eid);
@@ -100,36 +99,38 @@ begin
   loop
     fetch curs into r;
     exit when not found;
-    eid = r.eid;
-    name = r.name;
-    if exists(select 1 from Part_time_Emp P where P.eid = r.eid) then
+    eid := r.eid;
+    name := r.name;
+    if ((select count(*) from Part_time_Emp P where P.eid = r.eid) > 0) then
       status := 'Part time';
       num_work_days := null;
       monthly_salary := null;
       num_work_hours := 0;
-      hourly_rate := (select hourly_rate from Part_time_Emp P where P.eid = r.eid);
+      hourly_rate := (select P.hourly_rate from Part_time_Emp P where P.eid = r.eid);
       salary_amount := num_work_hours * hourly_rate;
       insert into Pay_slips
-      values (select now()::date, r.eid, salary_amount, num_work_hours, null);
+      values (NOW(), r.eid, salary_amount, num_work_hours, null);
     else
       status := 'Full time';
       num_work_hours := null;
       hourly_rate := null;
-      if (r.join_date = select DATE_PART('months', NOW())) then
-        first_work_day = select DATE_PART('days', r.join_date);
+      if ((select DATE_PART('year', r.join_date)) = (select DATE_PART('year', NOW()))) and 
+      ((select DATE_PART('month', r.join_date)) = (select DATE_PART('month', NOW()))) then
+        first_work_day := (select DATE_PART('day', r.join_date));
       else
-        first_work_day = 1;
+        first_work_day := 1;
       end if;
-      if (r.depart_date = select DATE_PART('months', NOW())) then
-        last_work_day = select DATE_PART('days', r.depart_date);
+      if ((select DATE_PART('year', r.depart_date)) = (select DATE_PART('year', NOW()))) and 
+      ((select DATE_PART('month', r.depart_date)) = (select DATE_PART('month', NOW()))) then
+        last_work_day := (select DATE_PART('day', r.depart_date));
       else
-        last_work_day = day_in_month;
+        last_work_day := day_in_month;
       end if;
       num_work_days := last_work_day - first_work_day + 1;
-      monthly_salary := (select monthly_salary from Full_time_Emp F where F.eid = r.eid);
-      salar_amount := num_work_days * monthly_salary / day_in_month;
+      monthly_salary := (select F.monthly_salary from Full_time_Emp F where F.eid = r.eid);
+      salary_amount := num_work_days * monthly_salary / day_in_month;
       insert into Pay_slips
-      values (select now()::date, r.eid, salary_amount, null, num_work_days);
+      values (NOW(), r.eid, salary_amount, null, num_work_days);
     end if;
     return next;
   end loop;

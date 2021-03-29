@@ -1,3 +1,10 @@
+insert into Employees
+values (1, 'Wu Haitao', '12345678', 'wuhaitao@email.com', 'someWhere', 2020-1-1, null),
+       (2, 'Bob', '11111110', 'Bob@email.com', 'someWhere', 2020-1-2, null),
+       (3, 'Lucy', '11111101', 'Lucy@email.com', 'someWhere', 2020-1-3, null),
+       (4, 'Fred', '11111011', 'Fred@email.com', 'someWhere', '2020-01-04', null);
+//先别删，测试用
+
 call add_employees ('Wu Haitao', '12345678', 'wuhaitao@email.com', 'someWhere', 
 		'monthly: 4000','2020-1-1','instructor', array['math']);
 		

@@ -197,7 +197,8 @@ begin
       status := 'Part time';
       num_work_days := null;
       monthly_salary := null;
-      num_work_hours := 0;
+      num_work_hours := (select SUM(end_time - start_time) from Conducts C, Sessions S where (C.sid = S.sid) and (C.eid = r.eid));
+      --这句话还没测试过
       hourly_rate := (select P.hourly_rate from Part_time_Emp P where P.eid = r.eid);
       salary_amount := num_work_hours * hourly_rate;
       insert into Pay_slips
@@ -227,5 +228,41 @@ begin
     return next;
   end loop;
   close curs;
+end;
+$$ language plpgsql;
+
+
+create or replace function promote_courses()
+returns table(cust_id char(20), cust_name char(30), course_area char(20), course_id char(20), course_title text, launch_date date, registration_ddl date, offering_fee double precision) as $$
+declare
+begin
+end;
+$$ language plpgsql;
+
+create or replace function top_packages(IN n int)
+returns table(package_id char(20), num_free_sessions int, price double precision, start_date date, end_date date, num_sold int) as $$
+declare
+begin
+end;
+$$ language plpgsql;
+
+create or replace function popular_courses()
+returns table(course_id char(20), course_area char(20), num_offering int, num_registrations) as $$
+declare
+begin
+end;
+$$ language plpgsql;
+
+create or replace function view_summary_report(IN num_months int)
+returns table(month char(10), year char(4), total_salary numeric, total_sales int, total_fee double precision, total_refunded_fee double precision, num_registration int) as $$
+declare
+begin
+end;
+$$ language plpgsql;
+
+create or replace function view_manager_report()
+returns table(mname char(30), num_course_areas int, num_course_offerings int, total_net_fee double precision, offering_title text) as $$
+declare
+begin
 end;
 $$ language plpgsql;

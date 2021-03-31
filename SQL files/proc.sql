@@ -171,6 +171,32 @@ create or REPLACE PROCEDURE add_course (tile text, description text, duration in
 	
 $$ LANGUAGE plpgsql;
 
+create or replace function find_rooms (date text, start_time integer, duration integer)
+returns table(room_id char(20), location text, seating_capacity integer) as $$
+declare
+ this_sid char(20);
+ this_cid char(20);
+begin
+ with Sessions1 as (select S.sid as sid, S.course_id as cid
+ from Sessions S
+ where S.date = date and S.start_time = start_time)
+
+ select course_id into this_cid from Courses C
+ where C.course_id = (select cid from Sessions1) and C.duration = duration;
+
+ select sid into this_sid from Sessions1 S
+ where S.cid = this_cid;
+
+ select C.room_id into room_id from Conducts C
+ where C.course_id = cid and C.sid = this_sid;
+
+ select R.location into location from Rooms R
+ where R.room_id = room_id;
+
+ select R.seating_capacity into seating_capacity from Rooms R
+ where R.room_id = room_id;
+end;
+$$ language plpgsql;
 
 
 create or replace function pay_salary()
@@ -266,3 +292,4 @@ declare
 begin
 end;
 $$ language plpgsql;
+

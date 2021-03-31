@@ -55,7 +55,7 @@ create table Offerings (
   start_date                    date,
   end_date                      date,
   eid                           char(20) not null, 
-  primary key (launch_date, course_id);
+  primary key (launch_date, course_id),
   foreign key(eid) references Administrators on delete cascade,
   foreign key(course_id) references courses on delete cascade
 );
@@ -104,7 +104,7 @@ create table Sessions (
   end_time	    text,
   launch_date   date,
   course_id     char(20),
-  foreign key (launch_date) references Offerings on delete cascade,
+  foreign key (launch_date,course_id) references Offerings on delete cascade,
   foreign key (course_id)   references Courses   on delete cascade,
   primary key (session_id, launch_date, course_id));
 
@@ -204,7 +204,7 @@ create table Cancels(
 create table Manage(
 	name char(20) primary key,
 	eid text,
-	foreign key (name) references course_area on delete cascade on update cascade,
+	foreign key (name) references course_areas on delete cascade on update cascade,
 	foreign key (eid) references managers on delete cascade on update cascade
 );
 

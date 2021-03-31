@@ -43,8 +43,8 @@ declare
 			raise exception 'managers and administrators must be full time employees';
 		end if;
     	SELECT max(employees.eid) into pre_eid from employees;
-        if pre_eid is NULL then eid :='00001';
-        else eid := right(concat( '00000' ,cast( (cast(pre_eid as INTEGER)+1) as text)) ,5);
+        if pre_eid is NULL then eid :='E00001';
+        else eid := concat('E', right(concat( '00000' ,cast( (cast(pre_eid as INTEGER)+1) as text)) ,5) );
         end if;
         insert into employees values (eid, name,phone, email, address, join_date);
 		if left(salary_inf,7) = 'hourly:' then 
@@ -69,15 +69,107 @@ declare
 $$ LANGUAGE plpgsql;
 
 
-create or replace procedure remove_employees(eid char(20), depart_time date) as $$
+create or replace procedure remove_employees(_eid char(20), _depart_time date) as $$
 	declare
-		index_i integer;
-		index_j integer;
+		index_Administrator integer;
+		index_instructor integer;
+		index_manager integer;
 	begin
-		if ()
+		index_Administrator :=0;
+		index_instructor :=0;
+		index_manager := 0;
+		
+		select 1 into index_Administrator
+		from offerings O
+		where O.eid = _eid
+		and _depart_time <= date(O.registration_deadline);
+		
+		select 1 into index_instructor
+		from offerings O, conducts _C
+		where _C.eid = _eid
+		and _C.launch_date = O.launch_date
+		and _C.course_id = O.course_id
+		and _depart_time <= O.start_date;
+		
+		select 1 into index_manager
+		from manage Ma, course_areas Ca
+		where ma.name = ca.name
+		and ma.eid = _eid;
+		
+		if index_Administrator = 1 then 
+			raise exception 'the administrator has a incoming registration deadline so he/she can not leave.';
+		end if;
+		
+		if index_instructor = 1 then
+			raise exception 'the instructor has a incoming teaching class so he/she can not leave. ';
+		end if;
+		
+		if index_manager = 1 then
+			raise exception 'the manager has managed course area so he/she can not leave. ';
+		end if;
+		
+		update employees set depart_date = _depart_date where eid = _eid;
 		
 	end;
 $$ language plpgsql;
+
+create or REPLACE PROCEDURE add_customers (name char(30), phone text, email text, address text, 
+										   card_number text, expiry_date date, cvv integer) as $$ 
+declare 
+	pre_eid char(20);
+    eid char(20);
+   	BEGIN
+
+    	SELECT max(customers.cust_id) into pre_eid from customers;
+        if pre_eid is NULL then eid :='C00001';
+        else eid := concat('C', right(concat( '00000' ,cast( (cast(pre_eid as INTEGER)+1) as text)) ,5) );
+        end if;
+        insert into customers values (eid, name,phone, email, address);
+		insert into credit_cards values(card_number, expiry_date, cvv);
+		insert into owns values(card_number, eid, current_date);
+    end;
+	
+$$ LANGUAGE plpgsql;
+
+
+create or REPLACE PROCEDURE update_credit_card (_cust_id text, _card_number text, _expiry_date date, _cvv integer) as $$ 
+	declare
+		previous_number text;
+   	BEGIN
+		
+		select number into previous_number 
+		from owns
+		where _cust_id = cust_id;
+		
+		update credit_cards 
+		set number=_card_number, expiry_date = _expiry_date, cvv = _cvv
+		where number = previous_number;
+		
+		update owns
+		set number = _card_number, from_date = CURRENT_DATE
+		where cust_id = _cust_id;
+		
+    end;
+	
+$$ LANGUAGE plpgsql;
+
+
+create or REPLACE PROCEDURE add_course (tile text, description text, duration integer) as $$ 
+	declare 
+		pre_eid char(20);
+    	eid char(20);
+   	BEGIN
+
+    	SELECT max(courses.course_id) into pre_eid from courses;
+        if pre_eid is NULL then eid :='K00001';
+        else eid := concat('K', right(concat( '00000' ,cast( (cast(pre_eid as INTEGER)+1) as text)) ,5) );
+        end if;
+		
+		insert into courses values (eid, tile, description, duration);
+		
+    end;
+	
+$$ LANGUAGE plpgsql;
 
 
 

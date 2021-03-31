@@ -148,7 +148,7 @@ create table Redeems (
   foreign key (cust_id)    		  references Customers       on delete cascade on update cascade,
   foreign key (number)     		  references Credit_cards    on delete cascade on update cascade,
   foreign key (package_id) 		  references Course_packages on delete cascade on update cascade,
-  primary key (cust_id, number, package_id,session_id,launch_date,course_id));
+  primary key (cust_id, number, package_id,sid,launch_date,course_id));
 
 
 create table Conducts (
@@ -208,7 +208,7 @@ create table Cancels(
   cancels_date 	date,
   foreign key (sid, launch_date,course_id) references Sessions 	on delete cascade on update cascade,
   foreign key (cust_id) 		   references Customers on delete cascade on update cascade,
-  primary key (session_id, course_id, launch_date, cust_id, cancels_date));
+  primary key (sid, course_id, launch_date, cust_id, cancels_date));
 	       
 
 create table Manage(

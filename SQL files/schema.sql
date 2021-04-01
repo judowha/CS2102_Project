@@ -51,7 +51,9 @@ create table Courses (
   course_id     char(20) primary key,
   title         text unique,
   description   text,
-  duration      integer);
+  duration      integer,
+  area_name     char(20) not null,
+  foreign key (area_name) references Course_areas(name));
 
 
 create table Offerings (
@@ -112,7 +114,7 @@ create table Sessions (
   sid		char(20),
   date 		text,
   start_time 	int,
-  end_time	int,
+  end_time	     int,
   launch_date   date,
   course_id     char(20),
   foreign key (launch_date,course_id)	references Offerings on delete cascade,
@@ -121,7 +123,9 @@ create table Sessions (
 
 	       
 create table Course_areas (
-  name      char(20) primary key);
+  name      char(20) primary key,
+  eid       char(20) not null,
+  foreign key (eid) references Managers);
 
               
 create table Buys (
@@ -170,14 +174,6 @@ create table Specializes (
   foreign key (eid)  references instructors  on delete cascade);
 
 	       
-create table Cours_in (
-  name          char(20),
-  course_id     char(20),
-  primary key(course_id, name),
-  foreign key (name) 	  references Course_areas on delete cascade,
-  foreign key (course_id) references Courses 	  on delete cascade);
-
-	       
 create table Registers(
   sid 		 char(20),
   course_id 	 char(20),
@@ -209,10 +205,3 @@ create table Cancels(
   foreign key (sid, launch_date,course_id) references Sessions 	on delete cascade on update cascade,
   foreign key (cust_id) 		   references Customers on delete cascade on update cascade,
   primary key (sid, course_id, launch_date, cust_id, cancels_date));
-	       
-
-create table Manage(
-	name char(20) primary key,
-	eid 	      text,
-	foreign key (name) references course_areas on delete cascade on update cascade,
-	foreign key (eid)  references managers 	   on delete cascade on update cascade);

@@ -289,7 +289,44 @@ $$ language plpgsql;
 create or replace function view_manager_report()
 returns table(mname char(30), num_course_areas int, num_course_offerings int, total_net_fee double precision, offering_title text) as $$
 declare
+  curs cursor for (select E.name, E.eid from Managers M, Employees E where M.eid = E.eid order by E.name);
+  r record;
 begin
+  open curs;
+  loop
+    fetch curs into r;
+    mname := r.name;
+    num_course_areas := (select count(*)
+                         from Course_areas C
+                         where C.eid = r.eid);
+    num_course_offerings := (select count(*)
+                             from Course_areas CA, Courses C, Offerings O
+                             where (CA.eid = r.eid)
+                             and (C.area_name = CA.name)
+                             and (O.course_id = C.course_id)
+                             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW()))) );
+    total_net_fee := (select SUM(O.fees)
+                      from Course_areas CA, Courses C, Offerings O, Sessions S, Registers R
+                      where (CA.eid = r.eid)
+                      and (C.area_name = CA.name)
+                      and (O.course_id = C.course_id)
+                      and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
+                      and (S.course_id = O.course_id)
+                      and (R.sid = S.sid));
+    offering_title := (select C.title
+                      from Course_areas CA, Courses C, Offerings O, Sessions S, Registers R
+                      where (CA.eid = r.eid)
+                      and (C.area_name = CA.name)
+                      and (O.course_id = C.course_id)
+                      and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
+                      and (S.course_id = O.course_id)
+                      and (R.sid = S.sid)
+                      group by C.course_id, O.launch_date
+                      order by count(*) * O.fees
+                      limit 1);
+    return next;
+  end loop;
+  close curs;
 end;
 $$ language plpgsql;
 

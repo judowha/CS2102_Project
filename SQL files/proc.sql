@@ -280,9 +280,85 @@ end;
 $$ language plpgsql;
 
 create or replace function view_summary_report(IN num_months int)
-returns table(month char(10), year char(4), total_salary numeric, total_sales int, total_fee double precision, total_refunded_fee double precision, num_registration int) as $$
+returns table(month int, year int, total_salary numeric, total_sales int, total_fee double precision, total_refunded_fee double precision, num_registration int) as $$
 declare
+  n int;
+  loop_month date;
 begin
+  n := num_months;
+  loop_month := (select DATE_TRUNC('month', NOW()));
+  loop
+    exit when n = 0;
+    month := (select DATE_PART('month', loop_month));
+    year := (select DATE_PART('year', loop_month));
+    total_salary := (select SUM(amount)
+                     from Pay_slips P
+                     where DATE_TRUNC('month', P.payment_date) = loop_month);
+    total_sales := (select count(*)
+                    from Buys B
+                    where DATE_TRUNC('month', B.date) = loop_month);
+    total_fee := (select SUM(O.fees)
+                  from Register R, Sessions S, Offerings O
+                  where (DATE_TRUNC('month', R.date) = loop_month)
+                  and (R.sid = S.sid)
+                  and (S.course_id = O.course_id)
+                  and (S.launch_date = O.launch_date));
+    total_refunded_fee := (select SUM(O.fees) * 0.9
+                           from Cancels C, Sessions S, Offerings O
+                           where (DATE_TRUNC('month', C.date) = loop_month)
+                           and (C.sid = S.sid)
+                           and (S.course_id = O.course_id)
+                           and (S.launch_date = O.launch_date));
+    num_registration := (select count(*)
+                         from Redeems R, Sessions S, Offerings O
+                         where (DATE_TRUNC('month', R.date) = loop_month)
+                         and (R.sid = S.sid)
+                         and (S.course_id = O.course_id)
+                         and (S.launch_date = O.launch_date));
+    loop_month := month - '1 month'::interval;
+    n := n - 1;
+  end loop;
+  close curs;
+end;
+$$ language plpgsql;
+
+create or replace function compute_net_registration_fees(IN eid char(20))
+returns table(course_id char(20), fee int) as $$
+declare
+  curs cursor for (select C.course_id from Courses C, Course_areas CA where (CA.name = C.area_name) and (CA.eid = eid));
+  r record;
+begin
+  open curs;
+  loop
+    fetch curs into r;
+    exit when not found;
+    course_id := r.course_id;
+    fee := (select SUM(O.fees)
+            from Courses C, Offerings O, Sessions S, Registers R
+            where (O.course_id = C.course_id)
+            and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
+            and (S.course_id = O.course_id)
+            and (S.launch_date = O.launch_date)
+            and (R.sid = S.sid))
+          -(select SUM(O.fees) * 0.9
+            from Courses C, Offerings O, Sessions S, Cancels CL
+            where (O.course_id = C.course_id)
+            and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
+            and (S.course_id = O.course_id)
+            and (S.launch_date = O.launch_date)
+            and (CL.sid = S.sid))
+          +(select SUM(CP.price / CP.num_free_registrations)
+            from Courses C, Offerings O, Sessions S, Course_packages CP, Redeems R
+            where (O.course_id = C.course_id)
+            and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
+            and (S.course_id = O.course_id)
+            and (S.launch_date = O.launch_date)
+            and (R.sid = S.sid)
+            and (R.package_id = CP.package_id));
+
+    return next;
+  end loop;
+  close curs;
 end;
 $$ language plpgsql;
 
@@ -291,40 +367,41 @@ returns table(mname char(30), num_course_areas int, num_course_offerings int, to
 declare
   curs cursor for (select E.name, E.eid from Managers M, Employees E where M.eid = E.eid order by E.name);
   r record;
+  n int;
 begin
   open curs;
   loop
     fetch curs into r;
-    mname := r.name;
-    num_course_areas := (select count(*)
-                         from Course_areas C
-                         where C.eid = r.eid);
-    num_course_offerings := (select count(*)
-                             from Course_areas CA, Courses C, Offerings O
-                             where (CA.eid = r.eid)
-                             and (C.area_name = CA.name)
-                             and (O.course_id = C.course_id)
-                             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW()))) );
-    total_net_fee := (select SUM(O.fees)
-                      from Course_areas CA, Courses C, Offerings O, Sessions S, Registers R
-                      where (CA.eid = r.eid)
-                      and (C.area_name = CA.name)
-                      and (O.course_id = C.course_id)
-                      and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
-                      and (S.course_id = O.course_id)
-                      and (R.sid = S.sid));
-    offering_title := (select C.title
-                      from Course_areas CA, Courses C, Offerings O, Sessions S, Registers R
-                      where (CA.eid = r.eid)
-                      and (C.area_name = CA.name)
-                      and (O.course_id = C.course_id)
-                      and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
-                      and (S.course_id = O.course_id)
-                      and (R.sid = S.sid)
-                      group by C.course_id, O.launch_date
-                      order by count(*) * O.fees
-                      limit 1);
-    return next;
+    exit when not found;
+    n := (select count(*)
+          from Courses C, (select * from compute_net_registration_fees(r.eid)) as X)
+          where (C.course_id = X.course_id)
+          and (X.fee = (select MAX(fee) from X)));
+    loop
+      exit when n = 0;
+      mname := r.name;
+      num_course_areas := (select count(*)
+                           from Course_areas C
+                           where C.eid = r.eid);
+      num_course_offerings := (select count(*)
+                               from Course_areas CA, Courses C, Offerings O
+                               where (CA.eid = r.eid)
+                               and (C.area_name = CA.name)
+                               and (O.course_id = C.course_id)
+                               and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW()))) );
+      total_net_fee := (select SUM(X.fee)
+                        from (select * from compute_net_registration_fees(r.eid)) as X);
+
+      offering_title := (select C.title
+                         from Courses C, (select * from compute_net_registration_fees(r.eid)) as X)
+                         where (C.course_id = X.course_id)
+                         and (X.fee = (select MAX(fee) from X))
+                         offset (n - 1)
+                         limit 1);
+      return next;
+      n := n - 1;
+    end loop;
+  
   end loop;
   close curs;
 end;

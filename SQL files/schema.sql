@@ -47,6 +47,11 @@ create table Managers (
   foreign key (eid) references Full_time_Emp on delete cascade);
   
   
+create table Course_areas (
+  name      char(20) primary key,
+  eid       char(20) not null,
+  foreign key (eid) references Managers);
+  
 create table Courses (
   course_id     char(20) primary key,
   title         text unique,
@@ -90,8 +95,11 @@ create table Customers (
 
 create table Credit_cards (
   number        text primary key,
+  cust_id		char(20) not null,
+  from_date 	date,
   expiry_date   date,
-  CVV           integer);
+  CVV           integer,
+  foreign key (cust_id) references customers on delete cascade);
 
 
 create table Pay_slips (
@@ -117,15 +125,13 @@ create table Sessions (
   end_time	     int,
   launch_date   date,
   course_id     char(20),
+  rid		char(20) not null,
+  eid		char(20) not null,
   foreign key (launch_date,course_id)	references Offerings on delete cascade,
   foreign key (course_id)   		references Courses   on delete cascade,
+  foreign key (rid) references rooms on delete cascade,
+  foreign key (eid) references instructors on delete cascade,
   primary key (sid, launch_date, course_id));
-
-	       
-create table Course_areas (
-  name      char(20) primary key,
-  eid       char(20) not null,
-  foreign key (eid) references Managers);
 
               
 create table Buys (
@@ -154,6 +160,8 @@ create table Redeems (
   foreign key (package_id) 		  references Course_packages on delete cascade on update cascade,
   primary key (cust_id, number, package_id,sid,launch_date,course_id));
 
+/*
+Table conduct is put into table sessions
 
 create table Conducts (
   room_id       char(20),
@@ -164,7 +172,7 @@ create table Conducts (
   foreign key (sid,launch_date,course_id) references Sessions  	 on delete cascade on update cascade,
   foreign key (room_id)    		  references Rooms    	 on delete cascade,
   foreign key (eid) 			  references instructors on delete cascade on update cascade);
-
+*/
 
 create table Specializes (
   eid     char(20) not NULL,
@@ -186,7 +194,8 @@ create table Registers(
   foreign key (cust_id)			  references Customers 	  on delete cascade on update cascade,
   primary key (sid, course_id, launch_date,cust_id,number,registers_date));
 
-	       
+/*
+table owns is put into table credit_cards
 create table Owns(
   number text,
   cust_id char(20) not null,
@@ -195,7 +204,7 @@ create table Owns(
   foreign key (cust_id)references Customers    on delete cascade on update cascade,
   primary key (number));
 	       
-
+*/
 create table Cancels(
   sid 		char(20),
   course_id 	char(20),

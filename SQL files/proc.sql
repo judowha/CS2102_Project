@@ -171,6 +171,32 @@ create or REPLACE PROCEDURE add_course (tile text, description text, duration in
 	
 $$ LANGUAGE plpgsql;
 
+create or replace function find_rooms (date text, start_time integer, duration integer)
+returns table(room_id char(20), location text, seating_capacity integer) as $$
+declare
+ this_sid char(20);
+ this_cid char(20);
+begin
+ with Sessions1 as (select S.sid as sid, S.course_id as cid
+ from Sessions S
+ where S.date = date and S.start_time = start_time)
+
+ select course_id into this_cid from Courses C
+ where C.course_id = (select cid from Sessions1) and C.duration = duration;
+
+ select sid into this_sid from Sessions1 S
+ where S.cid = this_cid;
+
+ select C.room_id into room_id from Conducts C
+ where C.course_id = cid and C.sid = this_sid;
+
+ select R.location into location from Rooms R
+ where R.room_id = room_id;
+
+ select R.seating_capacity into seating_capacity from Rooms R
+ where R.room_id = room_id;
+end;
+$$ language plpgsql;
 
 
 create or replace function pay_salary()
@@ -197,7 +223,8 @@ begin
       status := 'Part time';
       num_work_days := null;
       monthly_salary := null;
-      num_work_hours := 0;
+      num_work_hours := (select SUM(end_time - start_time) from Conducts C, Sessions S where (C.sid = S.sid) and (C.eid = r.eid));
+      --这句话还没测试过
       hourly_rate := (select P.hourly_rate from Part_time_Emp P where P.eid = r.eid);
       salary_amount := num_work_hours * hourly_rate;
       insert into Pay_slips
@@ -229,3 +256,77 @@ begin
   close curs;
 end;
 $$ language plpgsql;
+
+
+create or replace function promote_courses()
+returns table(cust_id char(20), cust_name char(30), course_area char(20), course_id char(20), course_title text, launch_date date, registration_ddl date, offering_fee double precision) as $$
+declare
+begin
+end;
+$$ language plpgsql;
+
+create or replace function top_packages(IN n int)
+returns table(package_id char(20), num_free_sessions int, price double precision, start_date date, end_date date, num_sold int) as $$
+declare
+begin
+end;
+$$ language plpgsql;
+
+create or replace function popular_courses()
+returns table(course_id char(20), course_area char(20), num_offering int, num_registrations) as $$
+declare
+begin
+end;
+$$ language plpgsql;
+
+create or replace function view_summary_report(IN num_months int)
+returns table(month char(10), year char(4), total_salary numeric, total_sales int, total_fee double precision, total_refunded_fee double precision, num_registration int) as $$
+declare
+begin
+end;
+$$ language plpgsql;
+
+create or replace function view_manager_report()
+returns table(mname char(30), num_course_areas int, num_course_offerings int, total_net_fee double precision, offering_title text) as $$
+declare
+  curs cursor for (select E.name, E.eid from Managers M, Employees E where M.eid = E.eid order by E.name);
+  r record;
+begin
+  open curs;
+  loop
+    fetch curs into r;
+    mname := r.name;
+    num_course_areas := (select count(*)
+                         from Course_areas C
+                         where C.eid = r.eid);
+    num_course_offerings := (select count(*)
+                             from Course_areas CA, Courses C, Offerings O
+                             where (CA.eid = r.eid)
+                             and (C.area_name = CA.name)
+                             and (O.course_id = C.course_id)
+                             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW()))) );
+    total_net_fee := (select SUM(O.fees)
+                      from Course_areas CA, Courses C, Offerings O, Sessions S, Registers R
+                      where (CA.eid = r.eid)
+                      and (C.area_name = CA.name)
+                      and (O.course_id = C.course_id)
+                      and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
+                      and (S.course_id = O.course_id)
+                      and (R.sid = S.sid));
+    offering_title := (select C.title
+                      from Course_areas CA, Courses C, Offerings O, Sessions S, Registers R
+                      where (CA.eid = r.eid)
+                      and (C.area_name = CA.name)
+                      and (O.course_id = C.course_id)
+                      and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
+                      and (S.course_id = O.course_id)
+                      and (R.sid = S.sid)
+                      group by C.course_id, O.launch_date
+                      order by count(*) * O.fees
+                      limit 1);
+    return next;
+  end loop;
+  close curs;
+end;
+$$ language plpgsql;
+

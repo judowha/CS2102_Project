@@ -199,6 +199,8 @@ end;
 $$ language plpgsql;
 
 
+create or replace function add_session()
+
 create or replace function pay_salary()
 returns table(eid char(20), name char(30), status char(10), num_work_days numeric, num_work_hours numeric, hourly_rate numeric, monthly_salary numeric, salary_amount numeric) as $$
 declare

@@ -199,7 +199,30 @@ end;
 $$ language plpgsql;
 
 
-create or replace function add_session()
+create or REPLACE PROCEDURE add_session(IN course_id char(20), IN launch_date date, IN number char(20), IN day date, IN start_hour int, IN intructor_id char(20), IN room_id char(20))  as $$
+declare
+  end_hour int;
+  deadline date;
+begin
+  end_hour := start_hour + (select duration from Courses C where C.course_id = course_id);
+  deadline := (select registration_deadline from Offerings O where (O.course_id = course_id) and (O.launch_date = launch_date));
+  if ((day < deadline) and ((start_hour >= 9) and (end_hour <= 12)) or ((start_hour >= 14) and (end_hour <= 18))) then
+    insert into Sessions
+    values (number, day, start_hour, end_hour, launch_date, course_id, room_id, instructor_id);
+    if (select start_date from Offerings O where (O.course_id = course_id) and (O.launch_date = launch_date)) > day then
+      update Offerings O
+      set O.start_date = day
+      where (O.course_id = course_id) and (O.launch_date = launch_date);
+    end if;
+    if (select end_date from Offerings O where (O.course_id = course_id) and (O.launch_date = launch_date)) < day then
+      update Offerings O
+      set O.end_date = day
+      where (O.course_id = course_id) and (O.launch_date = launch_date);
+    end if;
+  end if;
+end;
+$$ language plpgsql;
+
 
 create or replace function pay_salary()
 returns table(eid char(20), name char(30), status char(10), num_work_days numeric, num_work_hours numeric, hourly_rate numeric, monthly_salary numeric, salary_amount numeric) as $$

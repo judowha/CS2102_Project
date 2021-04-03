@@ -66,7 +66,7 @@ create table Offerings (
   course_id			char(20),
   fees                          double precision,
   target_number_registrations   integer,
-  registration_deadline         timestamp,
+  registration_deadline         date,
   seating_capacity              integer,
   start_date                    date,
   end_date                      date,
@@ -120,7 +120,7 @@ create table Rooms (
 	      
 create table Sessions (
   sid		char(20),
-  date 		text,
+  date 		date,
   start_time 	int,
   end_time	     int,
   launch_date   date,

@@ -199,6 +199,46 @@ end;
 $$ language plpgsql;
 
 
+create or REPLACE PROCEDURE remove_session(IN course_id char(20), IN launch_date date, IN number char(20))  as $$
+declare
+  num_registration int;
+  new_offering_start_date date;
+  new_offering_end_date date;
+begin
+  num_registration := (select count(*)
+                       from Registers R, Sessions S
+                       where (R.sid = S.sid)
+                       and (S.sid = number)
+                       and (S.course_id = course_id)
+                       and (S.launch_date = launch_date))
+                     -(select count(*)
+                       from Cancels C, Sessions S
+                       where (C.sid = S.sid)
+                       and (S.sid = number)
+                       and (S.course_id = course_id)
+                       and (S.launch_date = launch_date));
+  if num_registrations = 0 then
+    delete from Sessions
+    where (S.sid = number)
+    and (S.course_id = course_id)
+    and (S.launch_date = launch_date);
+    
+    new_offering_start_date := (select MIN(S.date)
+                                from Sessions S
+                                where (S.course_id = course_id)
+                                and (S.launch_date = launch_date));
+    new_offering_start_date := (select MAX(S.date)
+                                from Sessions S
+                                where (S.course_id = course_id)
+                                and (S.launch_date = launch_date));
+    update Offering O
+    set O.start_date = new_offering_start_date;
+    update Offering O
+    set O.end_date = new_offering_end_date;
+  end if;
+end;
+$$ language plpgsql;
+
 create or REPLACE PROCEDURE add_session(IN course_id char(20), IN launch_date date, IN number char(20), IN day date, IN start_hour int, IN intructor_id char(20), IN room_id char(20))  as $$
 declare
   end_hour int;
@@ -253,7 +293,7 @@ begin
       hourly_rate := (select P.hourly_rate from Part_time_Emp P where P.eid = r.eid);
       salary_amount := num_work_hours * hourly_rate;
       insert into Pay_slips
-      values (NOW(), r.eid, salary_amount, num_work_hours, null);
+      values (CURRENT_DATE, r.eid, salary_amount, num_work_hours, null);
     else
       status := 'Full time';
       num_work_hours := null;
@@ -274,7 +314,7 @@ begin
       monthly_salary := (select F.monthly_salary from Full_time_Emp F where F.eid = r.eid);
       salary_amount := num_work_days * monthly_salary / day_in_month;
       insert into Pay_slips
-      values (NOW(), r.eid, salary_amount, null, num_work_days);
+      values (CURRENT_DATE, r.eid, salary_amount, null, num_work_days);
     end if;
     return next;
   end loop;
@@ -311,7 +351,7 @@ declare
   loop_month date;
 begin
   n := num_months;
-  loop_month := (select DATE_TRUNC('month', NOW()));
+  loop_month := (select DATE_TRUNC('month', CURRENT_DATE));
   loop
     exit when n = 0;
     month := (select DATE_PART('month', loop_month));
@@ -365,7 +405,7 @@ begin
             and (S.course_id = O.course_id)
             and (S.launch_date = O.launch_date)
             and (R.sid = S.sid))
-          -(select SUM(O.fees) * 0.9
+          -(select SUM(CL.refund_amt)
             from Courses C, Offerings O, Sessions S, Cancels CL
             where (O.course_id = C.course_id)
             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))

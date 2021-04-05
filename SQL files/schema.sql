@@ -1,5 +1,5 @@
 create table Employees (
-  eid           char(20) primary key,
+  eid           char(10) primary key,
   name          char(30),
   phone         text,
   email         text,
@@ -9,47 +9,47 @@ create table Employees (
 
 
 create table Part_time_Emp (
-  eid char(20) 	primary key,
+  eid char(10) 	primary key,
   hourly_rate 	numeric,
   foreign key (eid) references Employees on delete cascade);
 
 
 create table Full_time_Emp (
-  eid char(20) 	 primary key,
+  eid char(10) 	 primary key,
   monthly_salary numeric,
   foreign key (eid) references Employees on delete cascade);
 
 
 create table Instructors (
-  eid char(20) primary key,
+  eid char(10) primary key,
   foreign key (eid) references Employees on delete cascade);
 
 
 create table Part_time_instructors (
-  eid char(20) primary key,
+  eid char(10) primary key,
   foreign key (eid) references Instructors   on delete cascade,
   foreign key (eid) references Part_time_Emp on delete cascade);
 
 
 create table Full_time_instructors (
-  eid char(20) primary key,
+  eid char(10) primary key,
   foreign key (eid) references Instructors   on delete cascade,
   foreign key (eid) references Full_time_Emp on delete cascade);
 
 
 create table Administrators (
-  eid char(20) primary key,
+  eid char(10) primary key,
   foreign key (eid) references Full_time_Emp on delete cascade);
 
 
 create table Managers (
-  eid char(20) primary key,
+  eid char(10) primary key,
   foreign key (eid) references Full_time_Emp on delete cascade);
   
   
 create table Course_areas (
   name      char(20) primary key,
-  eid       char(20) not null,
+  eid       char(10) not null,
   foreign key (eid) references Managers);
   
 create table Courses (
@@ -70,7 +70,7 @@ create table Offerings (
   seating_capacity              integer,
   start_date                    date,
   end_date                      date,
-  eid                           char(20) not null, 
+  eid                           char(10) not null,
   primary key (launch_date, course_id),
   foreign key(eid) 	 references Administrators on delete cascade,
   foreign key(course_id) references courses 	   on delete cascade);
@@ -104,7 +104,7 @@ create table Credit_cards (
 
 create table Pay_slips (
   payment_date      date,
-  eid               char(20),
+  eid               char(10),
   amount            integer,
   num_work_hours    numeric,
   num_work_days     numeric,
@@ -126,7 +126,7 @@ create table Sessions (
   launch_date   date,
   course_id     char(20),
   rid		char(20) not null,
-  eid		char(20) not null,
+  eid		char(10) not null,
   foreign key (launch_date,course_id)	references Offerings on delete cascade,
   foreign key (course_id)   		references Courses   on delete cascade,
   foreign key (rid) references rooms on delete cascade,
@@ -165,7 +165,7 @@ Table conduct is put into table sessions
 
 create table Conducts (
   room_id       char(20),
-  eid      	char(20),
+  eid      	char(10),
   sid     	char(20),
   launch_date	date,
   course_id 	char(20),
@@ -175,7 +175,7 @@ create table Conducts (
 */
 
 create table Specializes (
-  eid     char(20) not NULL,
+  eid     char(10) not NULL,
   name    char(20),
   primary key(eid, name),
   foreign key (name) references Course_areas on delete cascade,

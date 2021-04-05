@@ -7,6 +7,7 @@ values (1, 'Wu Haitao', '12345678', 'wuhaitao@email.com', 'someWhere', '2020-1-1
 
 
 --test for add_employees function
+insert into course_areas values ('math'),('computer');
 call add_employees ('Wu Haitao', '12345678', 'wuhaitao@email.com', 'someWhere', 
 		'monthly: 4000','2020-1-1','instructor', array['math']);
 		
@@ -61,7 +62,6 @@ call add_employees('Fred', '11111011', 'Fred@email.com', 'someWhere',
 call remove_employees('00001','2020-04-01');
 
 --if the instructors leaves before the start date of the session
-insert into course_areas values ('math'),('computer');
 call add_employees('Bob', '11111110', 'Bob@email.com', 'someWhere',
 		'hourly: 40', '2020-1-2','instructor', array['math','computer']);
 insert into rooms values ('A0002','.',20);
@@ -72,7 +72,15 @@ call remove_employees('00002','2020-04-18');
 --test for add_customers function
 call add_customers ('Bob','123456','test@test.com','somewhere',
 				   '123456','2025-01-01','111');
+				   
 --test for update_credit_card function
 call update_credit_card('C00001','234567','2022-10-01','101');
+
+--test for add_course
+call add_course('data base', 'very hard','computer',30);
+
+insert into offerings values ('2021-03-01', 'K00001', 2000, 100, '2021-02-10 12:00:00', 100, '2021-03-10','2021-05-10','E00005');
+insert into rooms values ('R00001','somewhere',30);
+insert into sessions values ('S00001','2021-04-04',9,10,'2021-03-01', 'K00001','R00001','E00004') ;
 
 

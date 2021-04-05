@@ -2,7 +2,11 @@ insert into Employees
 values (1, 'Wu Haitao', '12345678', 'wuhaitao@email.com', 'someWhere', '2020-1-1', null),
        (2, 'Bob', '11111110', 'Bob@email.com', 'someWhere', '2020-1-2', null),
        (3, 'Lucy', '11111101', 'Lucy@email.com', 'someWhere', '2020-1-3', null),
-       (4, 'Fred', '11111011', 'Fred@email.com', 'someWhere', '2020-01-04', null);
+       (4, 'Fred', '11111011', 'Fred@email.com', 'someWhere', '2020-01-04', null),
+       (5, 'Mark', '11110111', 'Mark@email.com', 'someWhere', '2020-4-1', null),
+       (6, 'Anna', '11101111', 'Anna@email.com', 'someWhere', '2020-3-1', '2020-4-15'),
+       (7, 'Jack', '11011111', 'Jack@email.com', 'someWhere', '2020-2-1', '2020-3-1'),
+       (8, 'John', '10111111', 'John@email.com', 'someWhere', '2020-1-1', null);
 //先别删，测试用
 
 
@@ -23,28 +27,54 @@ call add_employees('Fred', '11111011', 'Fred@email.com', 'someWhere',
 -- test end
 
 insert into Part_time_Emp
-values (1, 30);
+values (1, 30),
+       (5, 25);
 
 insert into Full_time_Emp
 values (2, 1000),
        (3, 1500),
-       (4, 2000);
+       (4, 2000),
+       (6, 1800),
+       (7, 1600),
+       (8, 2100);
 
 insert into Instructors
 values (1),
-       (2);
+       (2),
+       (5),
+       (6);
 
 insert into Part_time_instructors
-values (1);
+values (1),
+       (5);
 
 insert into Full_time_instructors
-values (2);
+values (2),
+       (6);
 
 insert into Managers
-values (3);
+values (3),
+       (7);
 
 insert into Administrators
-values (4);
+values (4),
+       (8);
+
+
+insert into Course_areas
+values ('Computer Engineering', 3),
+       ('Computer Science', 3),
+       ('Data Science', 3),
+       ('Business', 7),
+       ('Law', 7);
+
+insert into Specializes
+values (1, 'Computer Engineering'),
+       (1, 'Computer Science'),
+       (2, 'Computer Engineering'),
+       (2, 'Data Science'),
+       (5, 'Business'),
+       (6, 'Law');
 
 --test for remove_employees function
 insert into course_id

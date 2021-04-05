@@ -623,7 +623,7 @@ begin
   this_date = start_date;
   LOOP
    EXIT WHEN this_date = end_date;
-   with Sessions1 as (select C.sid from Conducts C where C.room_id = r.room_id)
+   with Sessions1 as (select S.sid from Sessions S where S.room_id = r.room_id)
    select sum (end_time - start_time) into period from Sessions S where S.sid = Sessions1.sid and S.session_date = this_date;
    room_id = r.room_id;
    seating_capacity = select seating_capacity from Rooms Rm where Rm.room_id = r.room_id;
@@ -639,4 +639,25 @@ $$ language plpgsql;
 create or replace function add_course_offering
 (course_id char(20), fees double precision, launch_date date, registration_deadline date, eid char(20), session_date date, start_time int, room_id char(20)) as $$
 
+$$ language plpgsql;
+
+create or replace function get_available_course_packages ()
+returns table (pname text, num_free_registrations integer, end_date date, price double precision) as $$
+declare
+ curs CURSOR FOR (select * from Course_packages);
+ r RECORD;
+begin
+ OPEN curs;
+ LOOP
+  FETCH curs INTO r;
+  EXIT WHEN NOT FOUND;
+  pname = r.name;
+  num_free_registrations = r.num_free_registrations;
+  end_date = r.sale_end_date;
+  price = r.price;
+  RETURN NEXT;
+ END LOOP;
+ CLOSE curs;
+
+end;
 $$ language plpgsql;

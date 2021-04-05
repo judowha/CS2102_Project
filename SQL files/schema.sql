@@ -120,7 +120,7 @@ create table Rooms (
 	      
 create table Sessions (
   sid		char(20),
-  date 		date,
+  session_date 		date,
   start_time 	int,
   end_time	     int,
   launch_date   date,

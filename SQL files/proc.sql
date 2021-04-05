@@ -432,3 +432,49 @@ begin
 end;
 $$ language plpgsql;
 
+create or replace function add_course_package
+(pname text, num integer, start_date date, end_date date, price double precision) as $$
+declare
+ pre_pid char(20);
+ pid char(20);
+begin
+ SELECT max(package_id) into pre_pid from Course_packages;
+ if pre_pid is NULL then pid :='P00001';
+ else pid := concat('P', right(concat( '00000' ,cast( (cast(pre_pid as INTEGER)+1) as text)) ,5) );
+ end if;
+ insert into Course_packages values (pid, price, num, name, start_date, end_date);
+end;
+$$ language plpgsql;
+
+create or replace function get_available_rooms (start_date date, end_date date)
+returns table (room_id char(20), seating_capacity integer, rday date, hours integer[]) as $$
+declare
+ curs CURSOR FOR (select room_id from Rooms order by room_id);
+ r RECORD;
+ period integer;
+ this_date date;
+begin
+ OPEN curs;
+ LOOP
+  FETCH curs into r;
+  EXIT WHEN NOT FOUND;
+  this_date = start_date;
+  LOOP
+   EXIT WHEN this_date = end_date;
+   with Sessions1 as (select C.sid from Conducts C where C.room_id = r.room_id)
+   select sum (end_time - start_time) into period from Sessions S where S.sid = Sessions1.sid and S.session_date = this_date;
+   room_id = r.room_id;
+   seating_capacity = select seating_capacity from Rooms Rm where Rm.room_id = r.room_id;
+   rday = this_date;
+   hours[cast(this_date) as integer] = period;
+  END LOOP
+  RETURN NEXT;
+ END LOOP;
+ CLOSE curs;
+end;
+$$ language plpgsql;
+
+create or replace function add_course_offering
+(course_id char(20), fees double precision, launch_date date, registration_deadline date, eid char(20), session_date date, start_time int, room_id char(20)) as $$
+
+$$ language plpgsql;

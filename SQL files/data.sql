@@ -1,12 +1,12 @@
 insert into Employees
-values (1, 'Wu Haitao', '12345678', 'wuhaitao@email.com', 'someWhere', '2020-1-1', null),
-       (2, 'Bob', '11111110', 'Bob@email.com', 'someWhere', '2020-1-2', null),
-       (3, 'Lucy', '11111101', 'Lucy@email.com', 'someWhere', '2020-1-3', null),
-       (4, 'Fred', '11111011', 'Fred@email.com', 'someWhere', '2020-01-04', null),
-       (5, 'Mark', '11110111', 'Mark@email.com', 'someWhere', '2020-4-1', null),
-       (6, 'Anna', '11101111', 'Anna@email.com', 'someWhere', '2020-3-1', '2020-4-15'),
-       (7, 'Jack', '11011111', 'Jack@email.com', 'someWhere', '2020-2-1', '2020-3-1'),
-       (8, 'John', '10111111', 'John@email.com', 'someWhere', '2020-1-1', null);
+values (1, 'Wu Haitao', '12345678', 'wuhaitao@email.com', 'someWhere', '2021-1-1', null),
+       (2, 'Bob', '11111110', 'Bob@email.com', 'someWhere', '2021-1-2', null),
+       (3, 'Lucy', '11111101', 'Lucy@email.com', 'someWhere', '2021-1-3', null),
+       (4, 'Fred', '11111011', 'Fred@email.com', 'someWhere', '2021-01-04', null),
+       (5, 'Mark', '11110111', 'Mark@email.com', 'someWhere', '2021-4-1', null),
+       (6, 'Anna', '11101111', 'Anna@email.com', 'someWhere', '2021-3-1', '2020-4-15'),
+       (7, 'Jack', '11011111', 'Jack@email.com', 'someWhere', '2021-2-1', '2020-3-1'),
+       (8, 'John', '10111111', 'John@email.com', 'someWhere', '2021-1-1', null);
 //先别删，测试用
 
 
@@ -75,6 +75,30 @@ values (1, 'Computer Engineering'),
        (2, 'Data Science'),
        (5, 'Business'),
        (6, 'Law');
+
+insert into Courses
+values ('CG2271', 'Real-Time Operating Systems', 'Nice course', 3, 'Computer Engineering'),
+       ('CG2027', 'Transistor-level Digital Circuits', 'Nice course', 3, 'Computer Engineering'),
+       ('CS2040', 'Data Structures and Algorithms', 'Nice course', 2, 'Computer Science'),
+       ('CS3230', 'Design and Analysis of Algorithms', 'Bad course', 2, 'Computer Science'),
+       ('CS2102', 'Database Systems', 'Bad course', 2, 'Data Science'),
+       ('MKT1705', 'Principles of Marketing', 'None', 2, 'Business'),
+       ('LL4306', 'Chinese Banking Law', 'None', 2, 'Law'),
+       ('LL4320', 'International Space Law', 'None', 2, 'Law');
+
+insert into Offerings
+values ('2021-3-1', 'CS2102', 3200, 100, '2021-4-1', 120, '2021-4-20', '2021-5-20', 4),
+       ('2021-5-1', 'CS2102', 3200, 100, '2021-6-1', 120, '2021-6-20', '2021-7-20', 4),
+       ('2021-3-1', 'CG2271', 2000, 80, '2021-4-1', 120, '2021-4-20', '2021-5-20', 4),
+       ('2021-5-1', 'CG2027', 3000, 100, '2021-6-1', 120, '2021-6-20', '2021-7-20', 4),
+       ('2021-3-1', 'CS2040', 1800, 60, '2021-4-1', 80, '2021-4-20', '2021-5-20', 4),
+       ('2021-3-1', 'CS3230', 2800, 120, '2021-4-1', 150, '2021-4-20', '2021-5-20', 4),
+       ('2021-5-1', 'CS3230', 2800, 120, '2021-6-1', 150, '2021-6-20', '2021-7-20', 4),
+       ('2021-3-1', 'MKT1705', 2400, 80, '2021-4-1', 120, '2021-4-20', '2021-5-20', 8),
+       ('2021-5-1', 'LL4306', 5200, 50, '2021-6-1', 60, '2021-6-20', '2021-7-20', 8),
+       ('2021-3-1', 'LL4320', 5200, 50, '2021-4-1', 60, '2021-4-20', '2021-5-20', 8);
+
+
 
 --test for remove_employees function
 insert into course_id

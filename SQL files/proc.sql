@@ -387,7 +387,7 @@ $$ language plpgsql;
 
 
 create or replace function pay_salary()
-returns table(eid char(20), name char(30), status char(10), num_work_days numeric, num_work_hours numeric, hourly_rate numeric, monthly_salary numeric, salary_amount numeric) as $$
+returns table(eid char(10), name char(30), status char(10), num_work_days numeric, num_work_hours numeric, hourly_rate numeric, monthly_salary numeric, salary_amount numeric) as $$
 declare
   day_in_month integer;
   curs cursor for (select * from Employees order by eid);
@@ -455,7 +455,30 @@ $$ language plpgsql;
 create or replace function top_packages(IN n int)
 returns table(package_id char(20), num_free_sessions int, price double precision, start_date date, end_date date, num_sold int) as $$
 declare
+  curs cursor for (select C.package_id, count(*) cnt
+                   from Course_packages C, Buys B
+                   where (C.package_id = B.package_id)
+                   and ((select DATE_PART('year', B.buy_date)) = (select DATE_PART('year', CURRENT_DATE)))
+                   group by C.package_id
+                   order by (count(*), C.price) desc
+                   limit n);
+  r record;
+  temp record;
 begin
+  open curs;
+  loop
+    fetch curs into r;
+    exit when not found;
+    package_id := r.package_id;
+    temp := (select * from Course_packages C where C.package_id = r.package_id);
+    num_free_sessions := temp.num_free_sessions;
+    price := temp.price;
+    start_date := temp.sale_start_date;
+    end_date := temp.sale_end_date;
+    num_sold := r.cnt;
+    return next;
+  end loop;
+  close curs;
 end;
 $$ language plpgsql;
 
@@ -490,7 +513,7 @@ begin
                   and (R.sid = S.sid)
                   and (S.course_id = O.course_id)
                   and (S.launch_date = O.launch_date));
-    total_refunded_fee := (select SUM(O.fees) * 0.9
+    total_refunded_fee := (select SUM(C.refund_amt)
                            from Cancels C, Sessions S, Offerings O
                            where (DATE_TRUNC('month', C.date) = loop_month)
                            and (C.sid = S.sid)

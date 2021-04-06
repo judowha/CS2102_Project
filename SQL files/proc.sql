@@ -453,10 +453,57 @@ begin
 end;
 $$ language plpgsql;
 
-create or replace function popular_courses()
-returns table(course_id char(20), course_area char(20), num_offering int, num_registrations) as $$
+create or replace function popular_courses_init()
+returns table(course_id char(20), course_title text, course_area char(20), num_offering int, num_registrations) as $$
 declare
+  curs cursor for (select C.course_id
+                   from Courses C, Offerings O
+                   where (C.course_id = O.course_id)
+                   and ((select DATE_PART('year', O.start_date))=(select DATE_PART('year', CURRENT_DATE)))
+                   group by C.course_id
+                   having count(*) >= 2);
+  r record;
 begin
+  open curs;
+  loop
+    fetch curs into r;
+    exit when not found;
+    if (with (select O.course_id, O.launch_date, O.start_date, count(*) cnt
+              from Offerings O, Registers R
+              where (O.course_id = r.course_id)
+              and (R.course_id = O.course_id)
+              and (R.launch_date = O.launch_date)
+              group by O.course_id, O.launch_date) as X
+        select count(*)
+        from X X1, X X2
+        where (X1.start_date > X1.start_date)
+        and (X1.cnt < X2.cnt)) = 0 then
+    
+      course_id := r.course_id;
+      course_title := (select C.title from Courses C where C.course_id = r.course_id);
+      course_area := (select C.area_name from Courses C where C.course_id = r.course_id);
+      num_offering := (select count(*)
+                       from Offerings O
+                       where (O.course_id = r.course_id)
+                       and ((select DATE_PART('year', O.start_date))=(select DATE_PART('year', CURRENT_DATE))));
+      num_registrations := (select count(*)
+                            from Offerings O, Registers R
+                            where (O.start_date = (select MAX(O.start_date)
+                                                   from Offerings O
+                                                   where O.course_id = r.course_id))
+                            and (R.course_id = r.course_id)
+                            and (R.launch_date = O.launch_date));
+      return next;
+    end if;
+  end loop;
+  close curs;
+end;
+$$ language plpgsql;
+
+create or replace function popular_courses()
+returns table(course_id char(20), course_title text, course_area char(20), num_offering int, num_registrations) as $$
+begin
+  return (select popular_courses_init() P order by P.num_registrations desc, P.course_id);
 end;
 $$ language plpgsql;
 

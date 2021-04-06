@@ -292,35 +292,6 @@ create or replace function get_available_instructors(_course_id char(20),_start_
 $$ language plpgsql;
 
 
-
-create or replace function find_rooms (date text, start_time integer, duration integer)
-returns table(room_id char(20), location text, seating_capacity integer) as $$
-declare
- this_sid char(20);
- this_cid char(20);
-begin
- with Sessions1 as (select S.sid as sid, S.course_id as cid
- from Sessions S
- where S.date = date and S.start_time = start_time)
-
- select course_id into this_cid from Courses C
- where C.course_id = (select cid from Sessions1) and C.duration = duration;
-
- select sid into this_sid from Sessions1 S
- where S.cid = this_cid;
-
- select C.room_id into room_id from Conducts C
- where C.course_id = cid and C.sid = this_sid;
-
- select R.location into location from Rooms R
- where R.room_id = room_id;
-
- select R.seating_capacity into seating_capacity from Rooms R
- where R.room_id = room_id;
-end;
-$$ language plpgsql;
-
-
 create or REPLACE PROCEDURE remove_session(IN course_id char(20), IN launch_date date, IN number char(20))  as $$
 declare
   num_registration int;
@@ -616,19 +587,36 @@ begin
 end;
 $$ language plpgsql;
 
-create or replace function add_course_package
-(pname text, num integer, start_date date, end_date date, price double precision) as $$
+-- <8>
+
+create or replace function find_rooms (date text, start_time integer, duration integer)
+returns table(room_id char(20), location text, seating_capacity integer) as $$
 declare
- pre_pid char(20);
- pid char(20);
+ this_sid char(20);
+ this_cid char(20);
 begin
- SELECT max(package_id) into pre_pid from Course_packages;
- if pre_pid is NULL then pid :='P00001';
- else pid := concat('P', right(concat( '00000' ,cast( (cast(pre_pid as INTEGER)+1) as text)) ,5) );
- end if;
- insert into Course_packages values (pid, price, num, name, start_date, end_date);
+ with Sessions1 as (select S.sid as sid, S.course_id as cid
+ from Sessions S
+ where S.date = date and S.start_time = start_time)
+
+ select course_id into this_cid from Courses C
+ where C.course_id = (select cid from Sessions1) and C.duration = duration;
+
+ select sid into this_sid from Sessions1 S
+ where S.cid = this_cid;
+
+ select C.room_id into room_id from Conducts C
+ where C.course_id = cid and C.sid = this_sid;
+
+ select R.location into location from Rooms R
+ where R.room_id = room_id;
+
+ select R.seating_capacity into seating_capacity from Rooms R
+ where R.room_id = room_id;
 end;
 $$ language plpgsql;
+
+-- <9>
 
 create or replace function get_available_rooms (start_date date, end_date date)
 returns table (room_id char(20), seating_capacity integer, rday date, hours integer[]) as $$
@@ -658,10 +646,48 @@ begin
 end;
 $$ language plpgsql;
 
+-- <10>
+
 create or replace function add_course_offering
-(course_id char(20), fees double precision, launch_date date, registration_deadline date, eid char(20), session_date date, start_time int, room_id char(20)) as $$
+(course_id char(20), fees double precision, launch_date date, registration_deadline date, eid char(10), session_date date, start_time int, room_id char(20)) as $$
+declare
+ area_name char(20);
+ this_course_id char(20);
+ num_registration integer;
+ start_date date;
+ end_date date;
+begin
+ select name into area_name from Specializes S where S.eid = eid;
+ select course_id into this_course_id from Courses C where C.area_name = area_name;
+ select seating_capacity into num_registration from Rooms R where R.room_id = room_id;
+ select min (session_date) into start_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
+ select max (session_date) into end_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
+ IF (this_course_id = course_id) THEN
+  insert into Offerings
+  values (launch_date, course_id, fees, num_registration, registration_deadline, num_registration, start_date, end_date, eid);
+ ELSE raise exception 'This instructor is not specialized in this course area.';
+ END IF
+end;
 
 $$ language plpgsql;
+
+-- <11>
+
+create or replace function add_course_package
+(pname text, num integer, start_date date, end_date date, price double precision) as $$
+declare
+ pre_pid char(20);
+ pid char(20);
+begin
+ SELECT max(package_id) into pre_pid from Course_packages;
+ if pre_pid is NULL then pid :='P00001';
+ else pid := concat('P', right(concat( '00000' ,cast( (cast(pre_pid as INTEGER)+1) as text)) ,5) );
+ end if;
+ insert into Course_packages values (pid, price, num, name, start_date, end_date);
+end;
+$$ language plpgsql;
+
+-- <12>
 
 create or replace function get_available_course_packages ()
 returns table (pname text, num_free_registrations integer, end_date date, price double precision) as $$
@@ -680,6 +706,25 @@ begin
   RETURN NEXT;
  END LOOP;
  CLOSE curs;
+
+end;
+$$ language plpgsql;
+
+-- <13>
+
+create or replace function buy_course_package (cust_id, package_id) as $$
+declare
+ start_date date;
+ end_date date;
+ number text;
+begin
+ select sale_start_date into start_date from Course_packages C where C.package_id = package_id;
+ select sale_end_date into end_date from Course_packages C where C.package_id = package_id;
+ select Cr.number into number from Credit_cards Cr where Cr.cust_id = cust_id;
+ IF (CURRENT_DATE >= start_date and CURRENT_DATE <= end_date) THEN
+  insert into Buys
+  values (CURRENT_DATE, cust_id, number, package_id, 1);
+ END IF
 
 end;
 $$ language plpgsql;

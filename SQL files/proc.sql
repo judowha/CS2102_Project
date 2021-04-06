@@ -452,9 +452,8 @@ begin
   close curs;
 end;
 $$ language plpgsql;
-
 create or replace function popular_courses_init()
-returns table(course_id char(20), course_title text, course_area char(20), num_offering int, num_registrations) as $$
+returns table(course_id char(20), course_title text, course_area char(20), num_offering int, num_registrations int) as $$
 declare
   curs cursor for (select C.course_id
                    from Courses C, Offerings O
@@ -462,18 +461,19 @@ declare
                    and ((select DATE_PART('year', O.start_date))=(select DATE_PART('year', CURRENT_DATE)))
                    group by C.course_id
                    having count(*) >= 2);
+  
   r record;
 begin
   open curs;
   loop
     fetch curs into r;
     exit when not found;
-    if (with (select O.course_id, O.launch_date, O.start_date, count(*) cnt
+    if (with X as (select O.course_id, O.launch_date, O.start_date, count(*) cnt
               from Offerings O, Registers R
               where (O.course_id = r.course_id)
               and (R.course_id = O.course_id)
               and (R.launch_date = O.launch_date)
-              group by O.course_id, O.launch_date) as X
+              group by O.course_id, O.launch_date)
         select count(*)
         from X X1, X X2
         where (X1.start_date > X1.start_date)
@@ -488,7 +488,7 @@ begin
                        and ((select DATE_PART('year', O.start_date))=(select DATE_PART('year', CURRENT_DATE))));
       num_registrations := (select count(*)
                             from Offerings O, Registers R
-                            where (O.start_date = (select MAX(O.start_date)
+                            where (O.start_date >= all(select O.start_date
                                                    from Offerings O
                                                    where O.course_id = r.course_id))
                             and (R.course_id = r.course_id)
@@ -501,7 +501,7 @@ end;
 $$ language plpgsql;
 
 create or replace function popular_courses()
-returns table(course_id char(20), course_title text, course_area char(20), num_offering int, num_registrations) as $$
+returns table(course_id char(20), course_title text, course_area char(20), num_offering int, num_registrations int) as $$
 begin
   return (select popular_courses_init() P order by P.num_registrations desc, P.course_id);
 end;

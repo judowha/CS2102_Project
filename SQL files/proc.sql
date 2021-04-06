@@ -682,10 +682,10 @@ begin
    EXIT WHEN this_date = end_date;
    with Sessions1 as (select S.sid from Sessions S where S.room_id = r.room_id)
    select sum (end_time - start_time) into period from Sessions S where S.sid = Sessions1.sid and S.session_date = this_date;
-   room_id = r.room_id;
-   seating_capacity = select seating_capacity from Rooms Rm where Rm.room_id = r.room_id;
-   rday = this_date;
-   hours[cast(this_date) as integer] = period;
+   room_id := r.room_id;
+   seating_capacity := select seating_capacity from Rooms Rm where Rm.room_id = r.room_id;
+   rday := this_date;
+   hours[cast(this_date) as integer] := period;
   END LOOP
   RETURN NEXT;
  END LOOP;
@@ -746,10 +746,10 @@ begin
  LOOP
   FETCH curs INTO r;
   EXIT WHEN NOT FOUND;
-  pname = r.name;
-  num_free_registrations = r.num_free_registrations;
-  end_date = r.sale_end_date;
-  price = r.price;
+  pname := r.name;
+  num_free_registrations := r.num_free_registrations;
+  end_date := r.sale_end_date;
+  price := r.price;
   RETURN NEXT;
  END LOOP;
  CLOSE curs;
@@ -776,6 +776,60 @@ begin
 end;
 $$ language plpgsql;
 
+-- <14>
+
+create or replace function get_my_course_package (cust_id)
+returns row_to_json(table (pname, pdate, price, num_free_sessions, num_of_sessions, course_name, session_date, session_start_hour)) as $$
+declare
+ curs CURSOR FOR (select * from Course_packages CP
+ where CP.package_id = (select package_id from Buys B where B.cust_id = cust_id));
+ r RECORD;
+ cid char (20);
+begin
+ OPEN curs;
+ LOOP
+  FETCH curs INTO r;
+  EXIT WHEN NOT FOUND;
+  pname := r.name;
+  select B.buy_date into pdate from Buys B where B.package_id = r.package_id and B.cust_id = cust_id;
+  price := r.price;
+  num_free_sessions := r.num_free_registrations;
+  select B.num_remaining_redemptions into num_of_sessions from Buys B where B.package_id = r.package_id and B.cust_id = cust_id;
+  select R.course_id into cid from Redeems R where R.cust_id = cust_id and R.package_id = r.package_id;
+  select C.title into course_name from Courses C where C.course_id = cid;
+  select S.session_date into session_date from Sessions S where S.course_id = cid;
+  select S.start_time into session_start_hour from Sessions S where S.course_id = cid;
+  return NEXT;
+ END LOOP
+ CLOSE curs;
+end;
+$$ language plpgsql;
+
+-- <15>
+
+create or replace function get_available_course_offerings ()
+returns table (course_title, course_area, start_date, end_date, registration_deadline, course_fees, num_seats) as $$
+declare
+ curs CURSOR FOR (select * from Offerings order by registration_deadline, title asc);
+ r RECORD;
+begin
+ OPEN curs;
+ LOOP
+  FETCH curs INTO r;
+  EXIT WHEN NOT FOUND;
+  select C.title into course_title from Courses C where C.course_id = r.course_id;
+  select C.area_name into course_area from Courses C where C.course_id = r.course_id;
+  start_date := r.start_date;
+  end_date := r.end_date;
+  registration_deadline := r.registration_deadline;
+  course_fees := r.fees;
+  num_seats := r.seating_capacity - (select count(*) from Redeems R where R.course_id = r.course_id);
+  RETURN NEXT;
+ END LOOP;
+ CLOSE curs;
+
+end;
+$$ language plpgsql;
 
 -- <16>
 

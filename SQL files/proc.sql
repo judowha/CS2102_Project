@@ -505,7 +505,6 @@ begin
     loop_month := month - '1 month'::interval;
     n := n - 1;
   end loop;
-  close curs;
 end;
 $$ language plpgsql;
 
@@ -561,7 +560,7 @@ begin
     fetch curs into r;
     exit when not found;
     n := (select count(*)
-          from Courses C, (select * from compute_net_registration_fees(r.eid)) as X)
+          from Courses C, (select * from compute_net_registration_fees(r.eid)) as X
           where (C.course_id = X.course_id)
           and (X.fee = (select MAX(fee) from X)));
     loop
@@ -580,7 +579,7 @@ begin
                         from (select * from compute_net_registration_fees(r.eid)) as X);
 
       offering_title := (select C.title
-                         from Courses C, (select * from compute_net_registration_fees(r.eid)) as X)
+                         from Courses C, (select * from compute_net_registration_fees(r.eid)) as X
                          where (C.course_id = X.course_id)
                          and (X.fee = (select MAX(fee) from X))
                          offset (n - 1)

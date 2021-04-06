@@ -292,7 +292,7 @@ create or replace function get_available_instructors(_course_id char(20),_start_
 $$ language plpgsql;
 
 
-create or REPLACE PROCEDURE remove_session(IN course_id char(20), IN launch_date date, IN number char(20))  as $$
+create or REPLACE PROCEDURE remove_session(IN in_course_id char(20), IN in_launch_date date, IN in_number char(20))  as $$
 declare
   num_registration int;
   new_offering_start_date date;
@@ -301,61 +301,60 @@ begin
   num_registration := (select count(*)
                        from Registers R, Sessions S
                        where (R.sid = S.sid)
-                       and (S.sid = number)
-                       and (S.course_id = course_id)
-                       and (S.launch_date = launch_date))
+                       and (S.sid = in_number)
+                       and (S.course_id = in_course_id)
+                       and (S.launch_date = in_launch_date))
                      -(select count(*)
                        from Cancels C, Sessions S
                        where (C.sid = S.sid)
-                       and (S.sid = number)
-                       and (S.course_id = course_id)
-                       and (S.launch_date = launch_date));
-  if num_registrations = 0 then
+                       and (S.sid = in_number)
+                       and (S.course_id = in_course_id)
+                       and (S.launch_date = in_launch_date));
+  if num_registration = 0 then
     delete from Sessions
-    where (S.sid = number)
-    and (S.course_id = course_id)
-    and (S.launch_date = launch_date);
+    where (sid = in_number)
+    and (course_id = in_course_id)
+    and (launch_date = in_launch_date);
     
-    new_offering_start_date := (select MIN(S.date)
-                                from Sessions S
-                                where (S.course_id = course_id)
-                                and (S.launch_date = launch_date));
-    new_offering_start_date := (select MAX(S.date)
-                                from Sessions S
-                                where (S.course_id = course_id)
-                                and (S.launch_date = launch_date));
-    update Offering O
-    set O.start_date = new_offering_start_date;
-    update Offering O
-    set O.end_date = new_offering_end_date;
+    new_offering_start_date := (select MIN(session_date)
+                                from Sessions
+                                where (course_id = in_course_id)
+                                and (launch_date = in_launch_date));
+    new_offering_start_date := (select MAX(session_date)
+                                from Sessions
+                                where (course_id = in_course_id)
+                                and (launch_date = in_launch_date));
+    update Offerings
+    set start_date = new_offering_start_date;
+    update Offerings
+    set end_date = new_offering_end_date;
   end if;
 end;
 $$ language plpgsql;
 
-create or REPLACE PROCEDURE add_session(IN course_id char(20), IN launch_date date, IN number char(20), IN day date, IN start_hour int, IN intructor_id char(20), IN room_id char(20))  as $$
+create or REPLACE PROCEDURE add_session(IN in_course_id char(20), IN in_launch_date date, IN in_number char(20), IN in_day date, IN start_hour int, IN instructor_id char(20), IN room_id char(20))  as $$
 declare
   end_hour int;
   deadline date;
 begin
-  end_hour := start_hour + (select duration from Courses C where C.course_id = course_id);
-  deadline := (select registration_deadline from Offerings O where (O.course_id = course_id) and (O.launch_date = launch_date));
-  if ((day < deadline) and ((start_hour >= 9) and (end_hour <= 12)) or ((start_hour >= 14) and (end_hour <= 18))) then
+  end_hour := start_hour + (select duration from Courses where course_id = in_course_id);
+  deadline := (select registration_deadline from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date));
+  if ((in_day < deadline) and ((start_hour >= 9) and (end_hour <= 12)) or ((start_hour >= 14) and (end_hour <= 18))) then
     insert into Sessions
-    values (number, day, start_hour, end_hour, launch_date, course_id, room_id, instructor_id);
-    if (select start_date from Offerings O where (O.course_id = course_id) and (O.launch_date = launch_date)) > day then
-      update Offerings O
-      set O.start_date = day
-      where (O.course_id = course_id) and (O.launch_date = launch_date);
+    values (in_number, in_day, start_hour, end_hour, in_launch_date, in_course_id, room_id, instructor_id);
+    if (select start_date from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date)) > in_day then
+      update Offerings
+      set start_date = in_day
+      where (course_id = in_course_id) and (launch_date = in_launch_date);
     end if;
-    if (select end_date from Offerings O where (O.course_id = course_id) and (O.launch_date = launch_date)) < day then
-      update Offerings O
-      set O.end_date = day
-      where (O.course_id = course_id) and (O.launch_date = launch_date);
+    if (select end_date from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date)) < in_day then
+      update Offerings
+      set end_date = in_day
+      where (course_id = in_course_id) and (launch_date = in_launch_date);
     end if;
   end if;
 end;
 $$ language plpgsql;
-
 
 create or replace function pay_salary()
 returns table(eid char(10), name char(30), status char(10), num_work_days numeric, num_work_hours numeric, hourly_rate numeric, monthly_salary numeric, salary_amount numeric) as $$
@@ -441,18 +440,22 @@ begin
     fetch curs into r;
     exit when not found;
     package_id := r.package_id;
-    temp := (select * from Course_packages C where C.package_id = r.package_id);
-    num_free_sessions := temp.num_free_sessions;
-    price := temp.price;
-    start_date := temp.sale_start_date;
-    end_date := temp.sale_end_date;
+    --temp := (select * from Course_packages C where C.package_id = r.package_id);
+    --num_free_sessions := temp.num_free_sessions;
+    num_free_sessions := (select C.num_free_registrations from Course_packages C where C.package_id = r.package_id);
+    --price := temp.price;
+    price := (select C.price from Course_packages C where C.package_id = r.package_id);
+    --start_date := temp.sale_start_date;
+    --end_date := temp.sale_end_date;
+    start_date := (select C.sale_start_date from Course_packages C where C.package_id = r.package_id);
+    end_date := (select C.sale_end_date from Course_packages C where C.package_id = r.package_id);
     num_sold := r.cnt;
     return next;
   end loop;
   close curs;
 end;
-
 $$ language plpgsql;
+
 create or replace function popular_courses_init()
 returns table(course_id char(20), course_title text, course_area char(20), num_offering int, num_registrations int) as $$
 declare
@@ -527,10 +530,10 @@ begin
                      where DATE_TRUNC('month', P.payment_date) = loop_month);
     total_sales := (select count(*)
                     from Buys B
-                    where DATE_TRUNC('month', B.date) = loop_month);
+                    where DATE_TRUNC('month', B.buy_date) = loop_month);
     total_fee := (select SUM(O.fees)
-                  from Register R, Sessions S, Offerings O
-                  where (DATE_TRUNC('month', R.date) = loop_month)
+                  from Registers R, Sessions S, Offerings O
+                  where (DATE_TRUNC('month', R.registers_date) = loop_month)
                   and (R.sid = S.sid)
                   and (S.course_id = O.course_id)
                   and (S.launch_date = O.launch_date));
@@ -542,7 +545,7 @@ begin
                            and (S.launch_date = O.launch_date));
     num_registration := (select count(*)
                          from Redeems R, Sessions S, Offerings O
-                         where (DATE_TRUNC('month', R.date) = loop_month)
+                         where (DATE_TRUNC('month', R.redeem_date) = loop_month)
                          and (R.sid = S.sid)
                          and (S.course_id = O.course_id)
                          and (S.launch_date = O.launch_date));
@@ -552,34 +555,34 @@ begin
 end;
 $$ language plpgsql;
 
-create or replace function compute_net_registration_fees(IN eid char(20))
+create or replace function compute_net_registration_fees(IN in_eid char(20))
 returns table(course_id char(20), fee int) as $$
 declare
-  curs cursor for (select C.course_id from Courses C, Course_areas CA where (CA.name = C.area_name) and (CA.eid = eid));
-  r record;
+  curs cursor for (select C.course_id from Courses C, Course_areas CA where (CA.name = C.area_name) and (CA.eid = in_eid));
+  re record;
 begin
   open curs;
   loop
-    fetch curs into r;
+    fetch curs into re;
     exit when not found;
-    course_id := r.course_id;
+    course_id := re.course_id;
     fee := (select SUM(O.fees)
-            from Courses C, Offerings O, Sessions S, Registers R
-            where (O.course_id = C.course_id)
+            from Offerings O, Sessions S, Registers R
+            where (O.course_id = re.course_id)
             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
             and (S.course_id = O.course_id)
             and (S.launch_date = O.launch_date)
             and (R.sid = S.sid))
           -(select SUM(CL.refund_amt)
-            from Courses C, Offerings O, Sessions S, Cancels CL
-            where (O.course_id = C.course_id)
+            from Offerings O, Sessions S, Cancels CL
+            where (O.course_id = re.course_id)
             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
             and (S.course_id = O.course_id)
             and (S.launch_date = O.launch_date)
             and (CL.sid = S.sid))
           +(select SUM(CP.price / CP.num_free_registrations)
-            from Courses C, Offerings O, Sessions S, Course_packages CP, Redeems R
-            where (O.course_id = C.course_id)
+            from Offerings O, Sessions S, Course_packages CP, Redeems R
+            where (O.course_id = re.course_id)
             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
             and (S.course_id = O.course_id)
             and (S.launch_date = O.launch_date)
@@ -595,16 +598,17 @@ $$ language plpgsql;
 create or replace function view_manager_report()
 returns table(mname char(30), num_course_areas int, num_course_offerings int, total_net_fee double precision, offering_title text) as $$
 declare
-  curs cursor for (select E.name, E.eid from Managers M, Employees E where M.eid = E.eid order by E.name);
+  curs1 cursor for (select E.name, E.eid from Managers M, Employees E where M.eid = E.eid order by E.name);
   r record;
   n int;
 begin
-  open curs;
+  open curs1;
   loop
-    fetch curs into r;
+    fetch curs1 into r;
     exit when not found;
-    n := (select count(*)
-          from Courses C, (select * from compute_net_registration_fees(r.eid)) as X
+    n := (with X as (select * from compute_net_registration_fees(r.eid))
+          select count(*)
+          from Courses C, X
           where (C.course_id = X.course_id)
           and (X.fee = (select MAX(fee) from X)));
     loop
@@ -619,11 +623,13 @@ begin
                                and (C.area_name = CA.name)
                                and (O.course_id = C.course_id)
                                and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW()))) );
-      total_net_fee := (select SUM(X.fee)
-                        from (select * from compute_net_registration_fees(r.eid)) as X);
+      total_net_fee := (with X as (select * from compute_net_registration_fees(r.eid))
+                        select SUM(X.fee)
+                        from X);
 
-      offering_title := (select C.title
-                         from Courses C, (select * from compute_net_registration_fees(r.eid)) as X
+      offering_title := (with X as (select * from compute_net_registration_fees(r.eid))
+                         select C.title
+                         from Courses C, X
                          where (C.course_id = X.course_id)
                          and (X.fee = (select MAX(fee) from X))
                          offset (n - 1)
@@ -633,7 +639,7 @@ begin
     end loop;
   
   end loop;
-  close curs;
+  close curs1;
 end;
 $$ language plpgsql;
 

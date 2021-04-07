@@ -1078,3 +1078,47 @@ begin
 	close curs;
 end;
 $$ language plpgsql;
+
+
+
+--triggers
+
+create or replace function check_insert_session_function() returns trigger as $$
+begin
+  --check specializes
+  if (select count(*)
+      from Courses C, Specializes S
+      where (S.eid = NEW.eid)
+      and (C.area_name = S.name)
+      and (C.course_id = NEW.course_id)) = 0 then
+    raise notice 'Can not insert this session!';
+    return null;
+  end if;
+  --check time
+  if (select count(*)
+      from Sessions S
+      where (S.eid = NEW.eid)
+      and (S.session_date = NEW.session_date)
+      and (((NEW.start_time >= S.start_time) and (NEW.start_time <= S.end_time)) 
+        or ((NEW.end_time >= S.start_time) and (NEW.end_time <= S.end_time)))) > 0 then
+    raise notice 'Can not insert this session!';
+    return null;
+  end if;
+  --check consecutive
+  if (select count(*)
+      from Sessions S
+      where (S.eid = NEW.eid)
+      and (S.session_date = NEW.session_date)
+      and ((NEW.start_time = S.end_time + 1) or (New.end_time + 1 = S.start_time))) > 0 then
+    raise notice 'Can not insert this session!';
+    return null;
+  end if;
+
+  return NEW;
+end;
+$$ language plpgsql;
+
+create trigger check_insert_session_trigger
+before insert on Sessions
+for each row execute function check_insert_session_function();
+

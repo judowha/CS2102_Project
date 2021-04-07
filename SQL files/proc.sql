@@ -751,8 +751,21 @@ $$ language plpgsql;
 
 -- <10> // find valid instructor
 
+create trigger target_number_registrations_trigger
+before insert on Offerings
+for each row execute function target_number_registrations_func();
+
+create or replace function target_number_registrations_func() returns trigger as $$
+begin
+ IF (NEW.target_number_registrations > NEW.seating_capacity) THEN
+  NEW.targer_number_registrations := NEW.seating_capacity;
+ END IF;
+ RETURN NEW;
+end;
+$$ language plpgsql;
+
 create or replace function add_course_offering
-(course_id char(20), fees double precision, launch_date date, registration_deadline date, eid char(10), session_date date, start_time int, room_id char(20)) as $$
+(course_id char(20), fees double precision, launch_date date, registration_deadline date, target_number_registrations integer, eid char(10), session_date date, start_time int, room_id char(20)) as $$
 declare
  num_available_instructors integer;
  this_course_id char(20);
@@ -768,7 +781,7 @@ begin
   select min (session_date) into start_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
   select max (session_date) into end_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
   insert into Offerings
-  values (launch_date, course_id, fees, num_registration, registration_deadline, num_registration, start_date, end_date, eid);
+  values (launch_date, course_id, fees, target_number_registrations, registration_deadline, num_registration, start_date, end_date, eid);
   ELSE raise exception 'This instructor is not specialized in this course area.';
  END IF
 end;

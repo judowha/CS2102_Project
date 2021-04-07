@@ -553,32 +553,27 @@ begin
     exit when n = 0;
     month := (select DATE_PART('month', loop_month));
     year := (select DATE_PART('year', loop_month));
-    total_salary := (select SUM(amount)
+    total_salary := (select coalesce((select SUM(amount)
                      from Pay_slips P
-                     where DATE_TRUNC('month', P.payment_date) = loop_month);
+                     where DATE_TRUNC('month', P.payment_date) = loop_month), 0));
     total_sales := (select count(*)
                     from Buys B
                     where DATE_TRUNC('month', B.buy_date) = loop_month);
-    total_fee := (select SUM(O.fees)
+    total_fee := (select coalesce((select SUM(O.fees)
                   from Registers R, Sessions S, Offerings O
                   where (DATE_TRUNC('month', R.registers_date) = loop_month)
                   and (R.sid = S.sid)
                   and (S.course_id = O.course_id)
-                  and (S.launch_date = O.launch_date));
-    total_refunded_fee := (select SUM(C.refund_amt)
-                           from Cancels C, Sessions S, Offerings O
-                           where (DATE_TRUNC('month', C.date) = loop_month)
-                           and (C.sid = S.sid)
-                           and (S.course_id = O.course_id)
-                           and (S.launch_date = O.launch_date));
+                  and (S.launch_date = O.launch_date)), 0));
+    total_refunded_fee := (select coalesce((select SUM(C.refund_amt)
+                           from Cancels C
+                           where DATE_TRUNC('month', C.cancels_date) = loop_month), 0));
     num_registration := (select count(*)
-                         from Redeems R, Sessions S, Offerings O
-                         where (DATE_TRUNC('month', R.redeem_date) = loop_month)
-                         and (R.sid = S.sid)
-                         and (S.course_id = O.course_id)
-                         and (S.launch_date = O.launch_date));
-    loop_month := month - '1 month'::interval;
+                         from Redeems R
+                         where DATE_TRUNC('month', R.redeem_date) = loop_month);
+    loop_month := loop_month - '1 month'::interval;
     n := n - 1;
+    return next;
   end loop;
 end;
 $$ language plpgsql;

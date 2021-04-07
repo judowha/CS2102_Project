@@ -41,7 +41,7 @@ create or replace procedure add_specializes (name text[],eid char(20)) as $$
 	end;
 $$ language plpgsql;
 
--- <1>
+
 create or REPLACE PROCEDURE add_employees (name char(30), phone text, email text,
 							address text, salary_inf text,  join_date date, 
 							category text, course_area text[]) as $$ 
@@ -266,6 +266,7 @@ create or replace function get_available_instructors(_course_id char(20),_start_
 	end;
 $$ language plpgsql;
 
+		      
 create or REPLACE PROCEDURE remove_session(IN in_course_id char(20), IN in_launch_date date, IN in_number char(20))  as $$
 declare
   num_registration int;
@@ -314,6 +315,7 @@ begin
 end;
 $$ language plpgsql;
 
+			  
 create or REPLACE PROCEDURE add_session(IN in_course_id char(20), IN in_launch_date date, IN in_number char(20), IN in_day date, IN start_hour int, IN instructor_id char(20), IN in_room_id char(20))  as $$
 declare
   end_hour int;
@@ -351,6 +353,7 @@ begin
 end;
 $$ language plpgsql;
 
+			  
 create or replace function pay_salary()
 returns table(eid char(10), name char(30), status char(10), num_work_days numeric, num_work_hours numeric, hourly_rate numeric, monthly_salary numeric, salary_amount numeric) as $$
 declare
@@ -417,6 +420,7 @@ begin
 end;
 $$ language plpgsql;
 
+					   
 create or replace function top_packages(IN n int)
 returns table(package_id char(20), num_free_sessions int, price double precision, start_date date, end_date date, num_sold int) as $$
 declare
@@ -451,6 +455,7 @@ begin
 end;
 $$ language plpgsql;
 
+								  
 create or replace function popular_courses_init()
 returns table(course_id char(20), course_title text, course_area char(20), num_offering int, num_registrations int) as $$
 declare
@@ -508,6 +513,7 @@ begin
 end;
 $$ language plpgsql;
 
+				 
 create or replace function popular_courses()
 returns table(course_id char(20), course_title text, course_area char(20), num_offering int, num_registrations int) as $$
 begin
@@ -553,6 +559,7 @@ begin
 end;
 $$ language plpgsql;
 
+		       
 create or replace function compute_net_registration_fees(IN in_eid char(20))
 returns table(course_id char(20), fee int) as $$
 declare
@@ -592,6 +599,8 @@ begin
   close curs;
 end;
 $$ language plpgsql;
+		 
+		 
 create or replace function view_manager_report()
 returns table(mname char(30), num_course_areas int, num_course_offerings int, total_net_fee double precision, offering_title text) as $$
 declare
@@ -643,8 +652,8 @@ begin
 end;
 $$ language plpgsql;
 
+			      
 -- <8>
-
 create or replace function find_rooms (session_date date, start_time integer, duration integer)
 returns table(room_id char(20)) as $$
 declare
@@ -667,8 +676,8 @@ begin
 end;
 $$ language plpgsql;
 
+			   
 -- <9>
-
 create or replace function get_available_rooms (start_date date, end_date date)
 returns table (room_id char(20), seating_capacity integer, rday date, hours integer[]) as $$
 declare
@@ -698,8 +707,8 @@ begin
 end;
 $$ language plpgsql;
 
+	       
 -- trigger for registration deadline
-
 CREATE TRIGGER registration_deadline_trigger
 BEFORE INSERT ON Offerings
 FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
@@ -714,8 +723,8 @@ begin
 end;
 $$ language plpgsql;
 
+	       
 -- <10> // find valid instructor
-
 create trigger target_number_registrations_trigger
 before insert on Offerings
 for each row execute function target_number_registrations_func();
@@ -729,6 +738,7 @@ begin
 end;
 $$ language plpgsql;
 
+	       
 create or replace function add_course_offering
 (course_id char(20), fees double precision, launch_date date, registration_deadline date, target_number_registrations integer, eid char(10), session_date date, start_time int, room_id char(20)) as $$
 declare
@@ -753,8 +763,8 @@ end;
 
 $$ language plpgsql;
 
+										  
 -- <11>
-
 create or replace function add_course_package
 (pname text, num integer, start_date date, end_date date, price double precision) as $$
 declare
@@ -769,8 +779,8 @@ begin
 end;
 $$ language plpgsql;
 
+			       
 -- <12>
-
 create or replace function get_available_course_packages ()
 returns table (pname text, num_free_registrations integer, end_date date, price double precision) as $$
 declare
@@ -792,8 +802,8 @@ begin
 end;
 $$ language plpgsql;
 
+			       
 -- <13>
-
 create or replace function buy_course_package (cust_id, package_id) as $$
 declare
  start_date date;
@@ -811,8 +821,8 @@ begin
 end;
 $$ language plpgsql;
 
+			       
 -- <14>
-
 create or replace function get_my_course_package (cust_id)
 returns row_to_json(table (pname, pdate, price, num_free_sessions, num_of_sessions, course_name, session_date, session_start_hour)) as $$
 declare
@@ -840,8 +850,8 @@ begin
 end;
 $$ language plpgsql;
 
+			
 -- <15>
-
 create or replace function get_available_course_offerings ()
 returns table (course_title, course_area, start_date, end_date, registration_deadline, course_fees, num_seats) as $$
 declare
@@ -866,20 +876,24 @@ begin
 end;
 $$ language plpgsql;
 
+			
 -- <16>
-
 create or replace function get_available_course_sessions(input_launch_date date, input_course_id char(20))
 returns table(sid char(20), s_date date, s_start_hour int, instr_name text, num_of_seats_remaining int) as $$
 
 declare
 	curs cursor for 	(
-		select		sid, date, start_time, name, (seating_capacity - register_num + cancel_num) as num_seats
-		from		Sessions natural join Employees Rooms natural join  (select sid, count(cust_id) as register_num from Registers group by sid) as NumRegister natural join (select sid, count(cust_id) as cancel_num from Cancels group by sid) as NumCancel
-		where 	launch_date = input_launch_date
-		and 		course_id = input_course_id
-		and		(seating_capacity - register_num + cancel_num) > 0
-		and		date + start_time > GETDATE()
-		order by 	(date, start_time) asc);
+		select		Ss.sid as sid, Ss.session_date as s_date, Ss.start_time as s_time, Ss.name as s_name, (Ss.seating_capacity - Ss.register_num - Ss.redeem_num + Ss.cancel_num) as num_seats
+		from		((select S.sid, S.session_date, S.start_time from Sessions S where S.launch_date = input_launch_date and S.course_id = input_course_id) as SessionInfor natural join 
+				Employees natural join 
+				Rooms natural join  
+				(select Rg.sid, count(Rg.cust_id) as register_num from Registers Rg where Rg.launch_date = input_launch_date and Rg.course_id = input_course_id group by Rg.sid, Rg.launch_date, Rg.course_id) as NumRegister natural join 
+				(select Rd.sid, count(Rd.cust_id) as redeem_num from Redeems Rd where Rd.launch_date = input_launch_date and Rd.course_id = input_course_id group by Rd.sid, Rd.launch_date, Rd.course_id ) as NumRedeem natural join 
+				(select C.sid, count(C.cust_id) as cancel_num from Cancels C where C.launch_date = input_launch_date and C.course_id = input_course_id group by C.sid, C.launch_date, C.course_id) as NumCancel) as Ss
+		where 	(Ss.seating_capacity - Ss.register_num - Ss.redeem_num + Ss.cancel_num) > 0
+		and		Ss.date > current_date
+		and 		Ss.start_time > date_part ('hour', current_timestamp)
+		order by 	(Ss.session_date, Ss.start_time) asc);
 	r record;
 begin
 	open curs;
@@ -887,9 +901,9 @@ begin
 		fetch curs into r;
 		exit when not found;
 		sid := r.sid;
-		s_date := r.date;
-		s_start_hour := r.start_time;
-		instr_name := r.name;
+		s_date := r.s_date;
+		s_start_hour := r.s_time;
+		instr_name := r.s_name;
 		num_of_seats_remaining := r.num_seats;
 		return next;
 	end loop;
@@ -899,41 +913,48 @@ $$ language plpgsql;
 
 
 -- <17>
-
 create or replace procedure register_session(input_cust_id char(20), input_launch_date date, input_course_id char(20), input_sid char(20), pay_method text)
 as $$
 
 declare
-	curs1 cursor for (select sid from call get_available_course_sessions(input_launch_date, input_course_id));
-	curs2 cursor for (select cust_id from Buys);
+	curs1 cursor for (select sid from (select get_available_course_sessions(input_launch_date, input_course_id)));
+	curs2 cursor for (select * from Buys);
 	r1 record;
 	r2 record;
+	card_num text;
+	have_free integer;
 begin
 	open curs1;
 	loop
 		fetch curs1 into r1;
 		exit when not found;
+
+		select number into card_num from Credit_cards where cust_id = input_cust_id;
+
 		if (input_sid = r1.sid) then 
 			case 	
 			when pay_method = 'credit card' then 
-				insert into Registers values (input_sid, input_course_id, input_launch_date, input_cust_id, (select number from Credit_cards where cust_id = input_cust_id), cast(GETDATE() as date));
-				insert into Buys values (cast(GETDATE() as date), input_cust_id, (select number from Credit_cards where cust_id = input_cust_id));
-				
+				select number into card_num from Credit_cards where cust_id = input_cust_id;
+				insert into Registers values (input_sid, input_course_id, input_launch_date, input_cust_id, card_num, current_date);	
 			when pay_method = 'redemption' then 
+				have_free := 0;
 				open curs2;
 				loop
 				fetch curs2 into r2;
 				exit when not found;
-					if ((input_cust_id = r2.cust_id)  and  (0 < any (select num_remaining_redemptions from Buys where cust_id = input_cust_id))) then
-						update Buys set num_remaining_redemptions = num_remaining_redemptions - 1 where cust_id = input_cust_id and number = (select number from Credit_cards where cust_id = input_cust_id);
-					else
-						raise exception 'there is no free session in all of your package.';
+					if ((r2.cust_id = input_cust_id)  and  (r2.num_remaining_redemptions > 0)) then
+						have_free := 1;
+						update Buys 
+						set num_remaining_redemptions = num_remaining_redemptions - 1 
+						where buy_date = r2.buy_date and cust_id = r2.cust_id and number = r2.number and package_id = r2.package_id;
+						insert into Redeems values (current_date, r2.cust_id, r2.num, r2.package_id, input_sid, input_launch_date, input_course_id);	
 					end if;
 				end loop;
 				close curs2;
 				
+				if (have_free = 0) then raise exception ‘your do not have any active package.'; end if;
 			else 
-				raise exception 'you do not have any course package to redeem session.'; 
+				raise exception ‘your payment type is not supported.'; 
 			end case;
 		else
 			raise exception 'there is no available session.';
@@ -945,17 +966,16 @@ $$ language plpgsql;
 
 
 -- <18>
-
 create or replace function get_my_registrations(input_cust_id char(20))
 returns table(course_name text, course_fees double precision, s_date date, s_start_hour int, s_duration int, instr_name text) as $$
 
 declare
 	curs cursor for 	(
-		select		SCO.title as title, SCO.fees as fees, SCO.date as date, SCO.start_time as start_time, (SCO.end_time - SCO.start_time) as duration, E.name as name
-		from		(Sessions natural join Courses natural join Offerings) SCO, Employee E
-		where 	SCO.eid = E.eid
-		and 		SCO.date + SCO.end_time > GETDATE()
-		order by 	(SCO.date, SCO.start_time) asc);
+		select		S.title as title, S.fees as fees, S.date as date, S.start_time as s_time, (S.end_time - S.start_time) as duration, S.name as i_name
+		from		(Sessions natural join Courses natural join Offerings natural join Employee natural join Registers natural join Redeem) as S
+		where 	S.date > current_date
+		and 		S.start_time > date_part ('hour', current_timestamp)
+		order by 	(S.date, S.start_time) asc);
 	r record;
 begin
 	open curs;
@@ -965,9 +985,9 @@ begin
 		course_name := r.title;
 		course_fees := r.fees;
 		s_date := r.date;
-		s_start_hour := r.start_time;
+		s_start_hour := r.s_time;
 		s_duration := r.duration;
-		instr_name := r.name;
+		instr_name := r.i_name;
 		return next;
 	end loop;
 	close curs;		
@@ -976,112 +996,122 @@ $$ language plpgsql;
 
 
 -- <19>
-
 create or replace procedure update_course_session(input_cust_id char(20), input_launch_date date, input_course_id char(20), new_sid char(20))
 as $$
 declare
-	curs cursor for (select sid from call get_available_course_sessions(input_launch_date, input_course_id));
-	r record;
-
+	curs1 cursor for (select sid from (select get_available_course_sessions(input_launch_date, input_course_id)) as A);
+	r1 record;
+	curs2 cursor for (select * from Registers);
+	r2 record;
+	curs3 cursor for (select * from Redeems);
+	r3 record;
+	have_session_flag integer;
+	have_available_flag integer;
 begin
-	open curs;
+	have_session_flag := 0;
+	have_available_flag := 0;
+
+	open curs1;
 	loop
-		fetch curs into r;
-		exit when not found;
+		fetch curs1 into r1;
+		exit when not found;		
 		if (new_sid = r.sid) then 
-			update Register 
-			set sid = new_sid 
-			where cust_id = input_cust_id 
-			and launch_date = input_launch_date 
-			and course_id = input_course_id;
-		else
-			raise exception 'the update request is invalid, you can try other sessions.';
+			have_available_flag := 1;
+			
+			open curs2;
+			loop
+				fetch curs2 into r2;
+				exit when not found;		
+				if(r2.cust_id = input_cust_id and r2.launch_date = input_launch_date and r2.course_id = input_course_id) then
+					have_session_flag := 1;
+					update Registers 
+					set sid = new_sid
+					where cust_id = input_cust_id and launch_date = input_launch_date and course_id = input_course_id;
+				end if;
+			end loop;
+			close curs2;
+			
+			open curs3;
+			loop
+				fetch curs3 into r3;
+				exit when not found;		
+				if(r3.cust_id = input_cust_id and r3.launch_date = input_launch_date and r3.course_id = input_course_id) then 
+					have_session_flag := 1;
+					update Redeems 
+					set sid = new_sid
+					where cust_id = input_cust_id and launch_date = input_launch_date and course_id = input_course_id;
+				end if;
+			end loop;
+			close curs3;
 		end if;
+		
+		if (have_available_flag = 0) then raise exception 'there is no available session.'; end if;
+		if (have_available_flag = 1 and have_session_flag = 0) then raise exception 'you do not have any such registered course session.'; end if;
+
 	end loop;
-	close curs;
+	close curs1;
 end;
 $$ language plpgsql;
 
 
 -- <20>
-
 create or replace procedure cancel_registration(input_cust_id char(20), input_launch_date date, input_course_id char(20))
 as $$
 declare
-	curs cursor for (select cust_id, launch_date, course_id from Registers);
-	r record;
+	curs1 cursor for (select * from Registers natural join Sessions natural join Offerings);
+	r1 record;
+	curs2 cursor for (select * from Redeems natural join Sessions natural join Offerings);
+	r2 record;
+	request_flag integer;
 
 begin
-	open curs;
+	request_flag := 0;
+	
+	open curs1;
 	loop
-		fetch curs into r;
-		exit when not found;
-		if (input_cust_id = r.cust_id and input_launch_date = r.launch_date and input_course_id = r.course_id) then
-			insert into Cancels values ((select sid, course_id, launch_date, cust_id from Registers where cust_id = input_cust_id and launch_date = input_launch_date and course_id = input_course_id), cast(GETDATE() as date));
-		else
-			raise exception 'the cancelation request is invalid, you do not have any such session.';
+		fetch curs1 into r1;
+		exit when not found;		
+		if(r1.cust_id = input_cust_id and r1.launch_date = input_launch_date and r1.course_id = input_course_id) then
+		request_flag := 1;
+			if (current_date <= r1.session_date - 7) then
+				insert into Cancels values (r1.sid, r1.course_id, r1.launch_date, r1.cust_id, current_date, 0.9 * r1.fees, 0);
+			else 
+				insert into Cancels values (r1.sid, r1.course_id, r1.launch_date, r1.cust_id, current_date, 0, 0);
+			end if;
 		end if;
 	end loop;
-	close curs;
+	close curs1;
+			
+	open curs2;
+	loop
+		fetch curs2 into r2;
+		exit when not found;		
+		if(r2.cust_id = input_cust_id and r2.launch_date = input_launch_date and r2.course_id = input_course_id) then
+		request_flag := 1;		
+			if (current_date <= r2.session_date - 7) then
+				insert into Cancels values (r1.sid, r1.course_id, r1.launch_date, r1.cust_id, current_date, 0, 1);
+				update Redeems 
+				set num_remaining_redemptions = num_remaining_redemptions +1 
+				where cust_id = input_cust_id and launch_date = input_launch_date and course_id = input_course_id;
+			else 
+				insert into Cancels values (r1.sid, r1.course_id, r1.launch_date, r1.cust_id, current_date, 0, 0);
+			end if;
+		end if;
+	end loop;
+	close curs2;
+
+	if (request_flag = 0) then raise exception 'The cancelation request is invalid, you do not have any such session.'; end if;
 end;
 $$ language plpgsql;
 
 
 -- <21>
 
-create or replace procedure update_instructor(input_launch_date date, input_course_id char(20), input_sid char(20), new_eid char(20))
-as $$
-declare
-	curs cursor for (select (date + start_time) as start from Sessions where sid = input_sid and launch_date = input_launch_date and course_id = input_course_id);
-	r record;
-
-begin
-	open curs;
-	loop
-		fetch curs into r;
-		exit when not found;
-		if (GETDATE() < r.start) then
-			update Sessions set eid = new_eid where sid = input_sid;
-		else
-			raise exception 'the session has already begun, you can not update instructor.';		
-		end if;
-	end loop;
-	close curs;
-end;
-$$ language plpgsql;
-
 
 -- <22>
 
-create or replace procedure update_room(input_launch_date date, input_course_id char(20), input_sid char(20), new_room_id char(20))
-as $$
-
-declare
-	curs cursor for (select (date + start_time) as start from Sessions where sid = input_sid and launch_date = input_launch_date and course_id = input_course_id);
-	r record;
-
-begin
-	open curs;
-	loop
-		fetch curs into r;
-		exit when not found;
-		if (GETDATE() < r.start) then
-			if (select seating_capacity from Rooms where room_id = new_room_id) >= (select count(cust_id) from Registers where sid = input_sid group by sid) then
-				update Conducts set eid = new_eid where sid = input_sid;
-			else 
-				raise exception 'the number of registration exceed the capacity of new room.';
-			end if;
-		else
-			raise exception 'The session has already begun, you can not update instructor.';	
-		end if;
-	end loop;
-	close curs;
-end;
-$$ language plpgsql;
-
 
 --<26>
-
 create or replace function promote_courses() 
 returns table(_cust_id char(10), _cust_name text, _area_name text, _course_id char(10), _title text, 
 			  _launch_date date, _regist_ddl date, _fee double precision) as $$

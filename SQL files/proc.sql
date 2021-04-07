@@ -875,7 +875,7 @@ begin
 
 end;
 $$ language plpgsql;
-
+ 
 			
 -- <16>
 create or replace function get_available_course_sessions(input_launch_date date, input_course_id char(20))
@@ -884,14 +884,14 @@ returns table(sid char(20), s_date date, s_start_hour int, instr_name text, num_
 declare
 	curs cursor for 	(
 		select		Ss.sid as sid, Ss.session_date as s_date, Ss.start_time as s_time, Ss.name as s_name, (Ss.seating_capacity - Ss.register_num - Ss.redeem_num + Ss.cancel_num) as num_seats
-		from		((select S.sid, S.session_date, S.start_time from Sessions S where S.launch_date = input_launch_date and S.course_id = input_course_id) as SessionInfor natural join 
+		from		((select S.sid as sid, S.session_date as session_date, S.start_time as start_time, S.rid as rid from Sessions S where S.launch_date = input_launch_date and S.course_id = input_course_id) as SessionInfor natural join 
 				Employees natural join 
 				Rooms natural join  
-				(select Rg.sid, count(Rg.cust_id) as register_num from Registers Rg where Rg.launch_date = input_launch_date and Rg.course_id = input_course_id group by Rg.sid, Rg.launch_date, Rg.course_id) as NumRegister natural join 
-				(select Rd.sid, count(Rd.cust_id) as redeem_num from Redeems Rd where Rd.launch_date = input_launch_date and Rd.course_id = input_course_id group by Rd.sid, Rd.launch_date, Rd.course_id ) as NumRedeem natural join 
-				(select C.sid, count(C.cust_id) as cancel_num from Cancels C where C.launch_date = input_launch_date and C.course_id = input_course_id group by C.sid, C.launch_date, C.course_id) as NumCancel) as Ss
+				(select Rg.sid as sid, count(Rg.cust_id) as register_num from Registers Rg where Rg.launch_date = input_launch_date and Rg.course_id = input_course_id group by Rg.sid, Rg.launch_date, Rg.course_id) as NumRegister natural join 
+				(select Rd.sid as sid, count(Rd.cust_id) as redeem_num from Redeems Rd where Rd.launch_date = input_launch_date and Rd.course_id = input_course_id group by Rd.sid, Rd.launch_date, Rd.course_id ) as NumRedeem natural join 
+				(select C.sid as sid, count(C.cust_id) as cancel_num from Cancels C where C.launch_date = input_launch_date and C.course_id = input_course_id group by C.sid, C.launch_date, C.course_id) as NumCancel) as Ss
 		where 	(Ss.seating_capacity - Ss.register_num - Ss.redeem_num + Ss.cancel_num) > 0
-		and		Ss.date > current_date
+		and		Ss.session_date > current_date
 		and 		Ss.start_time > date_part ('hour', current_timestamp)
 		order by 	(Ss.session_date, Ss.start_time) asc);
 	r record;
@@ -971,11 +971,11 @@ returns table(course_name text, course_fees double precision, s_date date, s_sta
 
 declare
 	curs cursor for 	(
-		select		S.title as title, S.fees as fees, S.date as date, S.start_time as s_time, (S.end_time - S.start_time) as duration, S.name as i_name
-		from		(Sessions natural join Courses natural join Offerings natural join Employee natural join Registers natural join Redeem) as S
-		where 	S.date > current_date
+		select		S.title as title, S.fees as fees, S.session_date as date, S.start_time as s_time, (S.end_time - S.start_time) as duration, S.name as i_name
+		from		(Sessions natural join Courses natural join Offerings natural join Employees natural join Registers natural join Redeems) as S
+		where 	S.session_date > current_date
 		and 		S.start_time > date_part ('hour', current_timestamp)
-		order by 	(S.date, S.start_time) asc);
+		order by 	(S.session_date, S.start_time) asc);
 	r record;
 begin
 	open curs;
@@ -1105,10 +1105,125 @@ end;
 $$ language plpgsql;
 
 
+
 -- <21>
+create or replace procedure update_instructor(input_launch_date date, input_course_id char(20), input_sid char(20), new_eid char(20))
+as $$
+declare
+	curs1 cursor for (select * from Sessions);
+	r1 record;
+	curs2 cursor for (select date, start_time from Sessions);
+	r2 record;
+	busy_flag integer;
+	start_date date;
+	start_hour integer;
+	end_hour integer;
+begin
+	busy_flag := 1;
+
+	open curs1;
+	loop
+		fetch curs1 into r1;
+		exit when not found;
+			if (r1.sid = input_sid and r1.launch_date = input_launch_date and r1.course_id = input_course_id) then
+				start_date := r1.session_date;
+				start_hour := r1.start_time;
+				end_hour := r1.end_time;
+			end if;
+	end loop;
+	close curs1;
+
+	if (start_date > current_date and start_hour > date_part ('hour', current_timestamp)) then
+		open curs2;
+		loop
+			fetch curs2 into r2;
+			exit when not found;
+			if (r2.eid = new_eid and r2.session_date = start_date and (r2.start_time > end_hour or r2.end_time < start_hour)) then
+				busy_flag := 0;
+			end if;
+		end loop;
+		close curs2;
+		
+		if (busy_flag = 0) then 
+			update Session set eid = new_eid where sid = input_sid and launch_date = input_launch_date and course_id = input_course_id;
+		else 
+			raise exception 'The new instructor is busy now.';
+		end if;
+	else 
+		raise exception 'This session has already started.';
+	end if; 
+end;
+$$ language plpgsql;
 
 
 -- <22>
+create or replace procedure update_room(input_launch_date date, input_course_id char(20), input_sid char(20), new_room_id char(20))
+as $$
+declare
+	curs1 cursor for (select * from Sessions);
+	r1 record;
+
+	curs2 cursor for 	(
+		select		Ss.sid as sid, Ss.session_date as s_date, Ss.start_time as s_time, Ss.name as s_name, (Ss.seating_capacity - Ss.register_num - Ss.redeem_num + Ss.cancel_num) as num_seats
+		from		((select S.sid as sid, S.rid as rid from Sessions S where S.launch_date = input_launch_date and S.course_id = input_course_id) as SessionInfor natural join 
+				Rooms natural join  
+				(select Rg.sid as sid, count(Rg.cust_id) as register_num from Registers Rg where Rg.launch_date = input_launch_date and Rg.course_id = input_course_id group by Rg.sid, Rg.launch_date, Rg.course_id) as NumRegister natural join 
+				(select Rd.sid as sid, count(Rd.cust_id) as redeem_num from Redeems Rd where Rd.launch_date = input_launch_date and Rd.course_id = input_course_id group by Rd.sid, Rd.launch_date, Rd.course_id ) as NumRedeem natural join 
+				(select C.sid as sid, count(C.cust_id) as cancel_num from Cancels C where C.launch_date = input_launch_date and C.course_id = input_course_id group by C.sid, C.launch_date, C.course_id) as NumCancel) as Ss);
+	r2 record;
+	
+	curs3 cursor for (select * from Rooms where rid = new_room_id);
+	r3 record;
+
+	start_date date;
+	start_hour integer;
+	end_hour integer;
+	capacity integer;
+	register_num integer;
+	redeem_num integer;
+	cancel_num integer;
+begin
+	open curs1;
+	loop
+		fetch curs1 into r1;
+		exit when not found;
+			if (r1.sid = input_sid and r1.launch_date = input_launch_date and r1.course_id = input_course_id) then
+				start_date := r1.session_date;
+				start_hour := r1.start_time;
+				end_hour := r1.end_time;
+			end if;
+	end loop;
+	close curs1;
+
+	open curs2;
+	loop
+		fetch curs2 into r2;
+		exit when not found;
+		register_num := r2. register_num;
+		redeem_num := r2. redeem_num;
+		cancel_num := r2. cancel_num;
+	end loop;
+	close curs2;
+
+	open curs3;
+	loop
+		fetch curs3 into r3;
+		exit when not found;
+		capacity := r3.seating_capacity;
+	end loop;
+	close curs3;
+
+	if (start_date > current_date and start_hour > date_part ('hour', current_timestamp)) then
+		if (capacity < register_num + redeem_num - cancel_num)  then
+			update Session set rid = new_room_id where sid = input_sid and launch_date = input_launch_date and course_id = input_course_id;
+		else
+			raise exception 'the new room do not have seat anymore.';
+		end if;
+	else 
+		raise exception 'This session has already started.';
+	end if; 
+end;
+$$ language plpgsql;
 
 
 --<26>

@@ -330,7 +330,7 @@ begin
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
-    new_offering_start_date := (select MAX(session_date)
+    new_offering_end_date := (select MAX(session_date)
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
@@ -367,7 +367,7 @@ begin
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
-    new_offering_start_date := (select MAX(session_date)
+    new_offering_end_date := (select MAX(session_date)
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
@@ -734,6 +734,22 @@ begin
   RETURN NEXT;
  END LOOP;
  CLOSE curs;
+end;
+$$ language plpgsql;
+
+-- trigger for registration deadline
+
+CREATE TRIGGER registration_deadline_trigger
+BEFORE INSERT ON Offerings
+FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
+
+create or replace function registration_deadline_func() RETURNS TRIGGER AS $$
+begin
+ select
+ IF (NEW.start_date - NEW.registration_deadline < 10) THEN
+  NEW.registration_deadline := NEW.start_date - 10;
+ END IF;
+ RETURN NEW;
 end;
 $$ language plpgsql;
 

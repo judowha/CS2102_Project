@@ -715,26 +715,27 @@ begin
 end;
 $$ language plpgsql;
 
--- <10>
+-- <10> // find valid instructor
 
 create or replace function add_course_offering
 (course_id char(20), fees double precision, launch_date date, registration_deadline date, eid char(10), session_date date, start_time int, room_id char(20)) as $$
 declare
- area_name char(20);
+ num_available_instructors integer;
  this_course_id char(20);
  num_registration integer;
  start_date date;
  end_date date;
 begin
- select name into area_name from Specializes S where S.eid = eid;
- select course_id into this_course_id from Courses C where C.area_name = area_name;
- select seating_capacity into num_registration from Rooms R where R.room_id = room_id;
- select min (session_date) into start_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
- select max (session_date) into end_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
- IF (this_course_id = course_id) THEN
+ with Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = course_id))
+ select count(*) into num_available_instructors from Specialized_instructors;
+
+ IF (num_available_instructors >= 1) THEN
+  select seating_capacity into num_registration from Rooms R where R.room_id = room_id;
+  select min (session_date) into start_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
+  select max (session_date) into end_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
   insert into Offerings
   values (launch_date, course_id, fees, num_registration, registration_deadline, num_registration, start_date, end_date, eid);
- ELSE raise exception 'This instructor is not specialized in this course area.';
+  ELSE raise exception 'This instructor is not specialized in this course area.';
  END IF
 end;
 

@@ -6,10 +6,8 @@ create or replace procedure add_manage (_name text[],_eid char(20)) as $$
 	begin
 		index_i := array_length(_name,1);
 		index_j := 1;
-		--raise notice 'get into';
 		loop
 			exit when index_j > index_i;
-			--raise notice'check loop';
 			_index := 0;
 			select 1 into _index
 			from course_areas Ca
@@ -43,9 +41,10 @@ create or replace procedure add_specializes (name text[],eid char(20)) as $$
 	end;
 $$ language plpgsql;
 
-							 
--- <1>							 
-create or REPLACE PROCEDURE add_employees (name char(30), phone text, email text, address text, salary_inf text,  join_date date, category text, course_area text[]) as $$ 
+
+create or REPLACE PROCEDURE add_employees (name char(30), phone text, email text,
+							address text, salary_inf text,  join_date date, 
+							category text, course_area text[]) as $$ 
 declare 
 	pre_eid char(20);
     eid char(20);
@@ -85,45 +84,8 @@ $$ LANGUAGE plpgsql;
 
 
 create or replace procedure remove_employees(_eid char(20), _depart_time date) as $$
-	declare
-		index_Administrator integer;
-		index_instructor integer;
-		index_manager integer;
 	begin
-		index_Administrator :=0;
-		index_instructor :=0;
-		index_manager := 0;
-		
-		select 1 into index_Administrator
-		from offerings O
-		where O.eid = _eid
-		and _depart_time <= date(O.registration_deadline);
-		
-		select 1 into index_instructor
-		from offerings O, sessions S
-		where S.eid = _eid
-		and S.launch_date = O.launch_date
-		and S.course_id = O.course_id
-		and _depart_time <= O.start_date;
-		
-		select 1 into index_manager
-		from course_areas Ca
-		where Ca.eid = _eid;
-		
-		if index_Administrator = 1 then 
-			raise exception 'the administrator has a incoming registration deadline so he/she can not leave.';
-		end if;
-		
-		if index_instructor = 1 then
-			raise exception 'the instructor has a incoming teaching class so he/she can not leave. ';
-		end if;
-		
-		if index_manager = 1 then
-			raise exception 'the manager has managed course area so he/she can not leave. ';
-		end if;
-		
-		update employees set depart_date = _depart_date where eid = _eid;
-		
+		update employees set depart_date = _depart_time where eid = _eid;
 	end;
 $$ language plpgsql;
 
@@ -172,13 +134,13 @@ create or REPLACE PROCEDURE add_course (tile text, description text, areas text,
 
     	SELECT max(courses.course_id) into pre_eid from courses;
         if pre_eid is NULL then eid :='K00001';
-        else eid := concat('E', right(concat( '00000' ,cast( (cast(right(pre_eid ,5)as INTEGER)+1) as text)) ,5) );
+        else eid := concat('K', right(concat( '00000' ,cast( (cast(right(pre_eid ,5)as INTEGER)+1) as text)) ,5) );
         end if;
 		insert into courses values (eid, tile, description, duration, areas);
     end;
 $$ LANGUAGE plpgsql;
 
-				      
+
 create or replace function find_instructors(_course_id char(20),_session_date date, start_hour integer )
 	returns table(eid char(20), name text) as $$
 	declare 
@@ -232,7 +194,7 @@ create or replace function find_instructors(_course_id char(20),_session_date da
 	end;
 $$ language plpgsql;
 
-				      
+
 create or replace function get_available_instructors(_course_id char(20),_start_date date, _end_date date )
 	returns table(eid char(20), name text, totalHour integer, freeDate date, freeHour integer[]) as $$
 	declare 
@@ -1281,5 +1243,74 @@ $$ language plpgsql;
 create trigger check_insert_session_trigger
 before insert on Sessions
 for each row execute function check_insert_session_function();
+
+
+CREATE OR REPLACE FUNCTION maximum_workHour_notice() RETURNS TRIGGER AS $$
+	declare
+		totalHour integer;
+	BEGIN
+		select sum(end_time) - sum(start_time) into totalHour
+				from sessions s
+				where s.eid = new.eid
+				and  date_part('month',s.date) = date_part('month',new.start_date)
+				and s.course_id = new.course_id;
+		if(new.end_time - new.start_time + totalHour > 30) then 
+			raise notice 'the total work hour for instructor can not exceed 30 hours per month';
+			return null ;
+		else  return new;
+		end if ;
+	
+	END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER maximum_workHour
+BEFORE insert on sessions
+FOR EACH ROW EXECUTE FUNCTION  maximum_workHour_notice();
+
+CREATE OR REPLACE FUNCTION check_remove_employee() RETURNS TRIGGER AS $$
+	declare
+		index_Administrator integer;
+		index_instructor integer;
+		index_manager integer;
+	begin
+		index_Administrator :=0;
+		index_instructor :=0;
+		index_manager := 0;
+		
+		select 1 into index_Administrator
+		from offerings O
+		where O.eid = new.eid
+		and new.depart_date <= date(O.registration_deadline);
+		
+		select 1 into index_instructor
+		from sessions S
+		where S.eid = new.eid
+		and new.depart_date<= S.session_date;
+		
+		select 1 into index_manager
+		from course_areas Ca
+		where Ca.eid = new.eid;
+		
+		if index_Administrator = 1 then 
+			raise exception 'the administrator has a incoming registration deadline so he/she can not leave.';
+		end if;
+		
+		if index_instructor = 1 then
+			raise exception 'the instructor has a incoming teaching class so he/she can not leave. ';
+		end if;
+		
+		if index_manager = 1 then
+			raise exception 'the manager has managed course area so he/she can not leave. ';
+		end if;
+		
+		return new;
+	end;	
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER remove_employees
+BEFORE update on employees
+FOR EACH ROW EXECUTE FUNCTION  check_remove_employee();
+
+
 
 

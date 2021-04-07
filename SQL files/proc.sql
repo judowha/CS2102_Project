@@ -493,14 +493,22 @@ begin
     fetch curs into re;
     exit when not found;
     if (with X as (select O.course_id, O.launch_date, O.start_date, count(*) cnt
-              from Offerings O, Registers R
-              where (O.course_id = re.course_id)
-              and (R.course_id = O.course_id)
-              and (R.launch_date = O.launch_date)
-              group by O.course_id, O.launch_date)
+                   from Offerings O ,Registers R
+                   where (O.course_id = re.course_id)
+                   and (R.course_id = O.course_id)
+                   and (R.launch_date = O.launch_date)
+                   group by O.course_id, O.launch_date
+                   union
+                   select O.course_id, O.launch_date, O.start_date, 0
+                   from Offerings O
+                   where (not exists (select 1 
+                                     from  Registers R
+                                     where (R.course_id = O.course_id)
+                                     and (R.launch_date = O.launch_date)))
+                   and (O.course_id = re.course_id))
         select count(*)
         from X X1, X X2
-        where (X1.start_date > X1.start_date)
+        where (X1.start_date > X2.start_date)
         and (X1.cnt <= X2.cnt)) = 0 then
     
       course_id := re.course_id;

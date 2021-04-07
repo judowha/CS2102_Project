@@ -291,7 +291,6 @@ create or replace function get_available_instructors(_course_id char(20),_start_
 	end;
 $$ language plpgsql;
 
-
 create or REPLACE PROCEDURE remove_session(IN in_course_id char(20), IN in_launch_date date, IN in_number char(20))  as $$
 declare
   num_registration int;
@@ -329,7 +328,7 @@ begin
                      from Rooms R, Sessions S
                      where (S.course_id = in_course_id)
                      and (S.launch_date = in_launch_date)
-                     and (R.rid = S.rid));
+                     and (R.room_id = S.rid));
     update Offerings
     set start_date = new_offering_start_date,
         end_date = new_offering_end_date,
@@ -340,31 +339,39 @@ begin
 end;
 $$ language plpgsql;
 
-create or REPLACE PROCEDURE add_session(IN in_course_id char(20), IN in_launch_date date, IN in_number char(20), IN in_day date, IN start_hour int, IN instructor_id char(20), IN room_id char(20))  as $$
+create or REPLACE PROCEDURE add_session(IN in_course_id char(20), IN in_launch_date date, IN in_number char(20), IN in_day date, IN start_hour int, IN instructor_id char(20), IN in_room_id char(20))  as $$
 declare
   end_hour int;
   deadline date;
-  seat_cap int;
+  new_offering_start_date date;
+  new_offering_end_date date;
+  new_seat_cap int;
 begin
   end_hour := start_hour + (select duration from Courses where course_id = in_course_id);
   deadline := (select registration_deadline from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date));
-  seat_cap := (select seating_capacity from Rooms where rid = room_id);
+  
   if ((in_day < deadline) and ((start_hour >= 9) and (end_hour <= 12)) or ((start_hour >= 14) and (end_hour <= 18))) then
     insert into Sessions
-    values (in_number, in_day, start_hour, end_hour, in_launch_date, in_course_id, room_id, instructor_id);
-    if (select start_date from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date)) > in_day then
-      update Offerings
-      set start_date = in_day
-      where (course_id = in_course_id) and (launch_date = in_launch_date);
-    end if;
-    if (select end_date from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date)) < in_day then
-      update Offerings
-      set end_date = in_day
-      where (course_id = in_course_id) and (launch_date = in_launch_date);
-    end if;
+    values (in_number, in_day, start_hour, end_hour, in_launch_date, in_course_id, in_room_id, instructor_id);
+    new_offering_start_date := (select MIN(session_date)
+                                from Sessions
+                                where (course_id = in_course_id)
+                                and (launch_date = in_launch_date));
+    new_offering_start_date := (select MAX(session_date)
+                                from Sessions
+                                where (course_id = in_course_id)
+                                and (launch_date = in_launch_date));
+    new_seat_cap := (select SUM(R.seating_capacity)
+                     from Rooms R, Sessions S
+                     where (S.course_id = in_course_id)
+                     and (S.launch_date = in_launch_date)
+                     and (R.room_id = S.rid));
     update Offerings
-    set seating_capacity = seating_capacity + seat_cap
-    where (course_id = in_course_id) and (launch_date = in_launch_date);
+    set start_date = new_offering_start_date,
+        end_date = new_offering_end_date,
+        seating_capacity = new_seat_cap
+    where (course_id = in_course_id)
+    and (launch_date = in_launch_date);
   end if;
 end;
 $$ language plpgsql;

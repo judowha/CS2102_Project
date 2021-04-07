@@ -186,16 +186,21 @@ create or replace function find_instructors(_course_id char(20),session_date dat
 		r2 record;
 		isTeaching integer;
 		isAvailable integer;
+		area text;
 	begin
 		OPEN curs;
 		Loop
 			fetch curs into r1;
 			exit when not found;
 
+			select area_name into area
+			from courses
+			where course_id = _course_id;
+			
 			isTeaching :=0;
 			select 1 into isTeaching
-			from sessions s
-			where s.course_id = _course_id
+			from specializes s
+			where s.name = area
 			and s.eid = r1.eid;
 			
 			if(isTeaching = 1)
@@ -237,16 +242,21 @@ create or replace function get_available_instructors(_course_id char(20),_start_
 		possible_freeHour integer[];
 		_length integer;
 		index_i integer;
+		area text;
 	begin
 		OPEN curs;
 		Loop
 			fetch curs into r1;
 			exit when not found;
 			
+			select area_name into area
+			from courses
+			where course_id = _course_id;
+			
 			isTeaching :=0;
 			select 1 into isTeaching
-			from sessions s
-			where s.course_id = _course_id
+			from specializes s
+			where s.name = area
 			and s.eid = r1.eid;
 			
 			if(isTeaching = 1)
@@ -320,7 +330,7 @@ begin
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
-    new_offering_start_date := (select MAX(session_date)
+    new_offering_end_date := (select MAX(session_date)
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
@@ -357,7 +367,7 @@ begin
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
-    new_offering_start_date := (select MAX(session_date)
+    new_offering_end_date := (select MAX(session_date)
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
@@ -1096,6 +1106,98 @@ end;
 $$ language plpgsql;
 
 
+--<26>
+
+create or replace function promote_courses() 
+returns table(_cust_id char(10), _cust_name text, _area_name text, _course_id char(10), _title text, 
+			  _launch_date date, _regist_ddl date, _fee double precision) as $$
+	declare
+	
+		curs cursor for (select * 
+						from courses C,offerings O,course_areas CA
+						where O.course_id = C.course_id
+						and C.area_name = CA.name
+						order by O.registration_deadline);
+						
+		curs1 cursor for (select * from customers);
+		curs2 cursor for (select * from registers);
+		r2 record;
+		r1 record;
+		r3 record;
+		isActive integer;
+		interested_area text;
+	begin
+		interested_area := null;
+		open curs1;
+		loop
+			fetch curs1 into r1;
+			exit when not found;
+			isActive := 0;
+			open curs2;
+			loop
+				fetch curs2 into r3;
+				exit when not found;
+				if current_date - r3.registers_date <= 120 then 
+					isActive := 1;
+				end if;
+			end loop;
+			close curs2;
+			raise notice 'test1';
+			
+			if(isActive = 0) then
+				_cust_id := r1.cust_id;
+				_cust_name := r1.name;
+				
+				raise notice 'test2';
+				
+				select name into interested_area
+				from registers R, courses C, course_areas CA,offerings O
+				where R.cust_id = r1.cust_id
+				and R.launch_date = O.launch_date
+				and R.course_id = O.course_id
+				and O.course_id = C.course_id
+				and C.area_name = CA.name
+				order by R.registers_date
+				limit 1;
+		
+				if interested_area is not null then 
+					_area_name := interested_area;
+					open curs;
+					loop
+						fetch curs into r2;
+						exit when not found;
+						if r2.area_name = interested_area and current_date < r2.registration_deadline then
+							_course_id := r2.course_id;
+							_title := r2.title;
+							_launch_date = r2.launch_date;
+							_regist_ddl = r2.registration_deadline;
+							_fee = r2.fees;
+							return next;
+						end if;
+					end loop;
+					close curs;
+				else
+					open curs;
+					loop
+						fetch curs into r2;
+						exit when not found;
+						if  current_date < r2.registration_deadline then
+							_area_name := r2.area_name;
+							_course_id := r2.course_id;
+							_title := r2.title;
+							_launch_date = r2.launch_date;
+							_regist_ddl = r2.registration_deadline;
+							_fee = r2.fees;
+							return next;
+						end if;
+					end loop;
+				end if;	
+			end if;
+		end loop;
+	end
+$$ language plpgsql;
+
+
 
 --triggers
 
@@ -1137,4 +1239,5 @@ $$ language plpgsql;
 create trigger check_insert_session_trigger
 before insert on Sessions
 for each row execute function check_insert_session_function();
+
 

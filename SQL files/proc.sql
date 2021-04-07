@@ -177,7 +177,7 @@ create or REPLACE PROCEDURE add_course (tile text, description text, areas text,
     end;
 $$ LANGUAGE plpgsql;
 
-create or replace function find_instructors(_course_id char(20),session_date date, start_hour integer )
+create or replace function find_instructors(_course_id char(20),_session_date date, start_hour integer )
 	returns table(eid char(20), name text) as $$
 	declare 
 		curs cursor for (select * from instructors);
@@ -214,7 +214,7 @@ create or replace function find_instructors(_course_id char(20),session_date dat
 				loop
 					fetch curs2 into r2;
 					exit when not found;
-					if r2.eid = eid and r2.date = session_date then
+					if r2.eid = eid and r2.session_date = _session_date then
 						if start_hour >= r2.start_time-1 and start_hour <=r2.end_time then
 							isAvailable := 0;
 						end if;
@@ -269,7 +269,7 @@ create or replace function get_available_instructors(_course_id char(20),_start_
 				select sum(end_time) - sum(start_time) into totalHour
 				from sessions s
 				where s.eid = r1.eid
-				and  date_part('month',s.date) = date_part('month',_start_date)
+				and  date_part('month',s.session_date) = date_part('month',_start_date)
 				and s.course_id = _course_id;
 				this_date := _start_date;
 				Loop
@@ -281,7 +281,7 @@ create or replace function get_available_instructors(_course_id char(20),_start_
 						fetch curs2 into r2;
 						exit when not found;
 						raise notice 'test';
-						if r2.eid = eid and r2.date = this_date then
+						if r2.eid = eid and r2.session_date = this_date then
 							raise notice 'get into';
 							index_i := r2.start_time-1;
 							loop

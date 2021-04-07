@@ -589,35 +589,34 @@ begin
     fetch curs into re;
     exit when not found;
     course_id := re.course_id;
-    fee := (select SUM(O.fees)
+    fee := (select coalesce((select SUM(O.fees)
             from Offerings O, Sessions S, Registers R
             where (O.course_id = re.course_id)
             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
             and (S.course_id = O.course_id)
             and (S.launch_date = O.launch_date)
-            and (R.sid = S.sid))
-          -(select SUM(CL.refund_amt)
+            and (R.sid = S.sid)),0))
+          -(select coalesce((select SUM(CL.refund_amt)
             from Offerings O, Sessions S, Cancels CL
             where (O.course_id = re.course_id)
             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
             and (S.course_id = O.course_id)
             and (S.launch_date = O.launch_date)
-            and (CL.sid = S.sid))
-          +(select SUM(CP.price / CP.num_free_registrations)
+            and (CL.sid = S.sid)),0))
+          +(select coalesce((select SUM(CP.price / CP.num_free_registrations)
             from Offerings O, Sessions S, Course_packages CP, Redeems R
             where (O.course_id = re.course_id)
             and ((select DATE_PART('year', O.end_date)) = (select DATE_PART('year', NOW())))
             and (S.course_id = O.course_id)
             and (S.launch_date = O.launch_date)
             and (R.sid = S.sid)
-            and (R.package_id = CP.package_id));
+            and (R.package_id = CP.package_id)),0));
 
     return next;
   end loop;
   close curs;
 end;
 $$ language plpgsql;
-
 create or replace function view_manager_report()
 returns table(mname char(30), num_course_areas int, num_course_offerings int, total_net_fee double precision, offering_title text) as $$
 declare
@@ -634,6 +633,9 @@ begin
           from Courses C, X
           where (C.course_id = X.course_id)
           and (X.fee = (select MAX(fee) from X)));
+    if n = 0 then
+      n := 1;
+    end if;
     loop
       exit when n = 0;
       mname := r.name;

@@ -211,6 +211,8 @@ create table Cancels(
   launch_date 	date,
   cust_id 	char(20),
   cancels_date 	date,
+  refund_amt integer,
+  package_credit integer,
   foreign key (sid, launch_date,course_id) references Sessions 	on delete cascade on update cascade,
   foreign key (cust_id) 		   references Customers on delete cascade on update cascade,
   primary key (sid, course_id, launch_date, cust_id, cancels_date));

@@ -320,7 +320,7 @@ begin
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
-    new_offering_start_date := (select MAX(session_date)
+    new_offering_end_date := (select MAX(session_date)
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
@@ -357,7 +357,7 @@ begin
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
-    new_offering_start_date := (select MAX(session_date)
+    new_offering_end_date := (select MAX(session_date)
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));

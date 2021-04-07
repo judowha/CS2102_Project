@@ -297,6 +297,7 @@ declare
   num_registration int;
   new_offering_start_date date;
   new_offering_end_date date;
+  new_seat_cap int;
 begin
   num_registration := (select count(*)
                        from Registers R, Sessions S
@@ -324,10 +325,17 @@ begin
                                 from Sessions
                                 where (course_id = in_course_id)
                                 and (launch_date = in_launch_date));
+    new_seat_cap := (select SUM(R.seating_capacity)
+                     from Rooms R, Sessions S
+                     where (S.course_id = in_course_id)
+                     and (S.launch_date = in_launch_date)
+                     and (R.rid = S.rid));
     update Offerings
-    set start_date = new_offering_start_date;
-    update Offerings
-    set end_date = new_offering_end_date;
+    set start_date = new_offering_start_date,
+        end_date = new_offering_end_date,
+        seating_capacity = new_seat_cap
+    where (course_id = in_course_id)
+    and (launch_date = in_launch_date);
   end if;
 end;
 $$ language plpgsql;
@@ -336,9 +344,11 @@ create or REPLACE PROCEDURE add_session(IN in_course_id char(20), IN in_launch_d
 declare
   end_hour int;
   deadline date;
+  seat_cap int;
 begin
   end_hour := start_hour + (select duration from Courses where course_id = in_course_id);
   deadline := (select registration_deadline from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date));
+  seat_cap := (select seating_capacity from Rooms where rid = room_id);
   if ((in_day < deadline) and ((start_hour >= 9) and (end_hour <= 12)) or ((start_hour >= 14) and (end_hour <= 18))) then
     insert into Sessions
     values (in_number, in_day, start_hour, end_hour, in_launch_date, in_course_id, room_id, instructor_id);
@@ -352,6 +362,9 @@ begin
       set end_date = in_day
       where (course_id = in_course_id) and (launch_date = in_launch_date);
     end if;
+    update Offerings
+    set seating_capacity = seating_capacity + seat_cap
+    where (course_id = in_course_id) and (launch_date = in_launch_date);
   end if;
 end;
 $$ language plpgsql;

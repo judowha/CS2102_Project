@@ -170,7 +170,12 @@ values ('Computer Engineering', 'E00023'),
        ('Computer Science', 'E00023'),
        ('Business', 'E00027'),
        ('Data Science', 'E00027'),
-       ('Law', 'E00028');
+       ('Law', 'E00028'),
+       ('Economics', 'E00021'),
+       ('Philosophy', 'E00025'),
+       ('Pharmaceutical', 'E00026'),
+       ('Humanities', 'E00024'),
+       ('Food Science', 'E00029');
 
 
 insert into Specializes
@@ -214,7 +219,7 @@ values ('2021-3-1', 'K00005', 3200, 100, '2021-4-1', 120, '2021-4-20', '2021-5-2
        ('2021-3-1', 'K00008', 5200, 50, '2021-4-1', 60, '2021-4-20', '2021-5-20', 'E00038');
 	   
 	   
-insert into customers
+insert into Customers
 values 	('C00001','Chen Jiqing','12345678','jiqing@email.com','pgpr blk 20'),
 	('C00002', 'Dony','23456789','dony@email.com', 'someWhere'),
 	('C00003', 'Peter', '34567890', 'peter@email.com', 'someWhere'),

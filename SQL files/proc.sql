@@ -680,30 +680,25 @@ $$ language plpgsql;
 
 -- <8>
 
-create or replace function find_rooms (date text, start_time integer, duration integer)
-returns table(room_id char(20), location text, seating_capacity integer) as $$
+create or replace function find_rooms (session_date date, start_time integer, duration integer)
+returns table(room_id char(20)) as $$
 declare
  this_sid char(20);
  this_cid char(20);
 begin
+
  with Sessions1 as (select S.sid as sid, S.course_id as cid
  from Sessions S
- where S.date = date and S.start_time = start_time)
-
+ where S.session_date = session_date and S.start_time = start_time)
  select course_id into this_cid from Courses C
  where C.course_id = (select cid from Sessions1) and C.duration = duration;
 
  select sid into this_sid from Sessions1 S
  where S.cid = this_cid;
 
- select C.room_id into room_id from Conducts C
- where C.course_id = cid and C.sid = this_sid;
+ select S.rid into room_id from Sessions S
+ where S.course_id = this_cid and S.sid = this_sid;
 
- select R.location into location from Rooms R
- where R.room_id = room_id;
-
- select R.seating_capacity into seating_capacity from Rooms R
- where R.room_id = room_id;
 end;
 $$ language plpgsql;
 
@@ -723,13 +718,14 @@ begin
   EXIT WHEN NOT FOUND;
   this_date = start_date;
   LOOP
-   EXIT WHEN this_date = end_date;
+   EXIT WHEN this_date = end_date + 1;
    with Sessions1 as (select S.sid from Sessions S where S.room_id = r.room_id)
    select sum (end_time - start_time) into period from Sessions S where S.sid = Sessions1.sid and S.session_date = this_date;
    room_id := r.room_id;
    seating_capacity := select seating_capacity from Rooms Rm where Rm.room_id = r.room_id;
    rday := this_date;
-   hours[cast(this_date) as integer] := period;
+   hours[cast(this_date) as integer] := 7 - period;
+   this_date := this_date + 1;
   END LOOP
   RETURN NEXT;
  END LOOP;

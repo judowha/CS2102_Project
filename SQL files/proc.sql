@@ -177,7 +177,7 @@ create or REPLACE PROCEDURE add_course (tile text, description text, areas text,
     end;
 $$ LANGUAGE plpgsql;
 
-create or replace function find_instructors(_course_id char(20),session_date date, start_hour integer )
+create or replace function find_instructors(_course_id char(20),_session_date date, start_hour integer )
 	returns table(eid char(20), name text) as $$
 	declare 
 		curs cursor for (select * from instructors);
@@ -214,7 +214,7 @@ create or replace function find_instructors(_course_id char(20),session_date dat
 				loop
 					fetch curs2 into r2;
 					exit when not found;
-					if r2.eid = eid and r2.date = session_date then
+					if r2.eid = eid and r2.session_date = _session_date then
 						if start_hour >= r2.start_time-1 and start_hour <=r2.end_time then
 							isAvailable := 0;
 						end if;
@@ -269,7 +269,7 @@ create or replace function get_available_instructors(_course_id char(20),_start_
 				select sum(end_time) - sum(start_time) into totalHour
 				from sessions s
 				where s.eid = r1.eid
-				and  date_part('month',s.date) = date_part('month',_start_date)
+				and  date_part('month',s.session_date) = date_part('month',_start_date)
 				and s.course_id = _course_id;
 				this_date := _start_date;
 				Loop
@@ -281,7 +281,7 @@ create or replace function get_available_instructors(_course_id char(20),_start_
 						fetch curs2 into r2;
 						exit when not found;
 						raise notice 'test';
-						if r2.eid = eid and r2.date = this_date then
+						if r2.eid = eid and r2.session_date = this_date then
 							raise notice 'get into';
 							index_i := r2.start_time-1;
 							loop
@@ -680,30 +680,25 @@ $$ language plpgsql;
 
 -- <8>
 
-create or replace function find_rooms (date text, start_time integer, duration integer)
-returns table(room_id char(20), location text, seating_capacity integer) as $$
+create or replace function find_rooms (session_date date, start_time integer, duration integer)
+returns table(room_id char(20)) as $$
 declare
  this_sid char(20);
  this_cid char(20);
 begin
+
  with Sessions1 as (select S.sid as sid, S.course_id as cid
  from Sessions S
- where S.date = date and S.start_time = start_time)
-
+ where S.session_date = session_date and S.start_time = start_time)
  select course_id into this_cid from Courses C
  where C.course_id = (select cid from Sessions1) and C.duration = duration;
 
  select sid into this_sid from Sessions1 S
  where S.cid = this_cid;
 
- select C.room_id into room_id from Conducts C
- where C.course_id = cid and C.sid = this_sid;
+ select S.rid into room_id from Sessions S
+ where S.course_id = this_cid and S.sid = this_sid;
 
- select R.location into location from Rooms R
- where R.room_id = room_id;
-
- select R.seating_capacity into seating_capacity from Rooms R
- where R.room_id = room_id;
 end;
 $$ language plpgsql;
 
@@ -723,13 +718,14 @@ begin
   EXIT WHEN NOT FOUND;
   this_date = start_date;
   LOOP
-   EXIT WHEN this_date = end_date;
+   EXIT WHEN this_date = end_date + 1;
    with Sessions1 as (select S.sid from Sessions S where S.room_id = r.room_id)
    select sum (end_time - start_time) into period from Sessions S where S.sid = Sessions1.sid and S.session_date = this_date;
    room_id := r.room_id;
    seating_capacity := select seating_capacity from Rooms Rm where Rm.room_id = r.room_id;
    rday := this_date;
-   hours[cast(this_date) as integer] := period;
+   hours[cast(this_date) as integer] := 7 - period;
+   this_date := this_date + 1;
   END LOOP
   RETURN NEXT;
  END LOOP;
@@ -755,8 +751,21 @@ $$ language plpgsql;
 
 -- <10> // find valid instructor
 
+create trigger target_number_registrations_trigger
+before insert on Offerings
+for each row execute function target_number_registrations_func();
+
+create or replace function target_number_registrations_func() returns trigger as $$
+begin
+ IF (NEW.target_number_registrations > NEW.seating_capacity) THEN
+  NEW.targer_number_registrations := NEW.seating_capacity;
+ END IF;
+ RETURN NEW;
+end;
+$$ language plpgsql;
+
 create or replace function add_course_offering
-(course_id char(20), fees double precision, launch_date date, registration_deadline date, eid char(10), session_date date, start_time int, room_id char(20)) as $$
+(course_id char(20), fees double precision, launch_date date, registration_deadline date, target_number_registrations integer, eid char(10), session_date date, start_time int, room_id char(20)) as $$
 declare
  num_available_instructors integer;
  this_course_id char(20);
@@ -772,7 +781,7 @@ begin
   select min (session_date) into start_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
   select max (session_date) into end_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
   insert into Offerings
-  values (launch_date, course_id, fees, num_registration, registration_deadline, num_registration, start_date, end_date, eid);
+  values (launch_date, course_id, fees, target_number_registrations, registration_deadline, num_registration, start_date, end_date, eid);
   ELSE raise exception 'This instructor is not specialized in this course area.';
  END IF
 end;

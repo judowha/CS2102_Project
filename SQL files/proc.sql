@@ -654,24 +654,19 @@ $$ language plpgsql;
 
 			      
 -- <8>
-create or replace function find_rooms (session_date date, start_time integer, duration integer)
+create or replace function find_rooms (f_session_date date, f_start_time integer, f_duration integer)
 returns table(room_id char(20)) as $$
 declare
- this_sid char(20);
- this_cid char(20);
+ curs cursor for (select S.rid from Sessions S where S.session_date = f_session_date and S.start_time = f_start_time and S.end_time = (f_start_time + f_duration));
+ r record;
 begin
-
- with Sessions1 as (select S.sid as sid, S.course_id as cid
- from Sessions S
- where S.session_date = session_date and S.start_time = start_time)
- select course_id into this_cid from Courses C
- where C.course_id = (select cid from Sessions1) and C.duration = duration;
-
- select sid into this_sid from Sessions1 S
- where S.cid = this_cid;
-
- select S.rid into room_id from Sessions S
- where S.course_id = this_cid and S.sid = this_sid;
+ open curs;
+ LOOP
+  fetch curs into r;
+  exit when not found;
+  room_id := r.rid;
+  return next;
+ end loop;
 
 end;
 $$ language plpgsql;

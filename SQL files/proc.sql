@@ -760,17 +760,17 @@ $$ language plpgsql;
 
 										  
 -- <11>
-create or replace function add_course_package
+create or replace procedure add_course_package
 (pname text, num integer, start_date date, end_date date, price double precision) as $$
 declare
  pre_pid char(20);
  pid char(20);
 begin
- SELECT max(package_id) into pre_pid from Course_packages;
- if pre_pid is NULL then pid :='P00001';
- else pid := concat('P', right(concat( '00000' ,cast( (cast(pre_pid as INTEGER)+1) as text)) ,5) );
+ select max(course_packages.package_id) into pre_pid from course_packages;
+ if pre_pid is null then pid := 'P00001';
+ ELSE pid := concat('P', right(concat('00000', cast( ( cast(right(pre_pid, 5)as integer) + 1) as text )), 5));
  end if;
- insert into Course_packages values (pid, price, num, name, start_date, end_date);
+ insert into Course_packages values (pid, price, num, pname, start_date, end_date);
 end;
 $$ language plpgsql;
 

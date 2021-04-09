@@ -1416,6 +1416,30 @@ CREATE OR REPLACE FUNCTION check_remove_employee() RETURNS TRIGGER AS $$
 	end;	
 $$ LANGUAGE plpgsql;
 
+
+create tigger check_package_num_trigger
+before insert on Buys
+for each row execute function check_package_num_func();
+
+create or replace function check_package_num_func() returns tigger 
+as $$
+declare 
+	num_remaining_session integer;
+	num_session_can_cancel integer;
+begin
+	num_remaining_session := (select num_remaining_redemptions from Buys where cust_id = new.cust_id);
+	num_session_can_cancel := (	select count(RS.sid) 
+						from (Redeems natural join Sessions) RS 
+						where RS.cust_id = new.cust_id 
+						and RS.session_date >= (current_date + '7 day'::interval));
+	if ((num_remaining_session > 0) or (num_remaining_session = 0 and num_session_can_cancel > 0)) then
+		raise notice 'You can have at most one active or partially active package.'; 
+		return null;
+	end if;
+end;
+$$ language plpgsql;
+					    
+					    
 CREATE TRIGGER remove_employees
 BEFORE update on employees
 FOR EACH ROW EXECUTE FUNCTION  check_remove_employee();

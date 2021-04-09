@@ -816,7 +816,7 @@ begin
  IF ((select min(B.num_remaining_redemptions) from Buys B where B.package_id = f_package_id) >= 1) THEN
    select (min(B.num_remaining_redemptions) - 1) into remaining_num from Buys B where B.package_id = f_package_id;
  END IF;
- IF (CURRENT_DATE >= start_date and CURRENT_DATE <= end_date and remaining_num >= 0) THEN
+ IF (CURRENT_DATE >= start_date and CURRENT_DATE <= end_date and remaining_num >= 0 and (select * from Buys B where B.cust_id = f_cust_id and B.package_id = f_package_id) IS NULL) THEN
   insert into Buys
   values (CURRENT_DATE, f_cust_id, cnumber, f_package_id, remaining_num);
  END IF;
@@ -829,11 +829,11 @@ $$ language plpgsql;
 
 			       
 -- <14>
-create or replace function get_my_course_package (cust_id)
-returns row_to_json(table (pname, pdate, price, num_free_sessions, num_of_sessions, course_name, session_date, session_start_hour)) as $$
+create or replace function get_my_course_package (f_cust_id char(20))
+returns row_to_json(table (pname text, pdate date, price double precision, num_free_sessions integer, num_of_sessions integer, course_name text, session_date date, session_start_hour integer)) as $$
 declare
  curs CURSOR FOR (select * from Course_packages CP
- where CP.package_id = (select package_id from Buys B where B.cust_id = cust_id));
+ where CP.package_id = (select package_id from Buys B where B.cust_id = f_cust_id));
  r RECORD;
  cid char (20);
 begin
@@ -842,16 +842,16 @@ begin
   FETCH curs INTO r;
   EXIT WHEN NOT FOUND;
   pname := r.name;
-  select B.buy_date into pdate from Buys B where B.package_id = r.package_id and B.cust_id = cust_id;
+  select B.buy_date into pdate from Buys B where B.package_id = r.package_id and B.cust_id = f_cust_id;
   price := r.price;
   num_free_sessions := r.num_free_registrations;
-  select B.num_remaining_redemptions into num_of_sessions from Buys B where B.package_id = r.package_id and B.cust_id = cust_id;
-  select R.course_id into cid from Redeems R where R.cust_id = cust_id and R.package_id = r.package_id;
+  select B.num_remaining_redemptions into num_of_sessions from Buys B where B.package_id = r.package_id and B.cust_id = f_cust_id;
+  select Re.course_id into cid from Redeems Re where Re.cust_id = f_cust_id and Re.package_id = r.package_id;
   select C.title into course_name from Courses C where C.course_id = cid;
   select S.session_date into session_date from Sessions S where S.course_id = cid;
   select S.start_time into session_start_hour from Sessions S where S.course_id = cid;
   return NEXT;
- END LOOP
+ END LOOP;
  CLOSE curs;
 end;
 $$ language plpgsql;
@@ -859,22 +859,22 @@ $$ language plpgsql;
 			
 -- <15>
 create or replace function get_available_course_offerings ()
-returns table (course_title, course_area, start_date, end_date, registration_deadline, course_fees, num_seats) as $$
+returns table (f_course_title text, f_course_area char(20), f_start_date date, f_end_date date, f_registration_deadline date, f_course_fees double precision, f_num_seats integer) as $$
 declare
- curs CURSOR FOR (select * from Offerings order by registration_deadline, title asc);
+ curs CURSOR FOR (select * from Offerings order by registration_deadline asc);
  r RECORD;
 begin
  OPEN curs;
  LOOP
   FETCH curs INTO r;
   EXIT WHEN NOT FOUND;
-  select C.title into course_title from Courses C where C.course_id = r.course_id;
-  select C.area_name into course_area from Courses C where C.course_id = r.course_id;
-  start_date := r.start_date;
-  end_date := r.end_date;
-  registration_deadline := r.registration_deadline;
-  course_fees := r.fees;
-  num_seats := r.seating_capacity - (select count(*) from Redeems R where R.course_id = r.course_id);
+  select Co.area_name into f_course_area from Courses Co where co.course_id = r.course_id;
+  select Co.title into f_course_title from Courses Co where co.course_id = r.course_id;
+  f_start_date := r.start_date;
+  f_end_date := r.end_date;
+  f_registration_deadline := r.registration_deadline;
+  f_course_fees := r.fees;
+  f_num_seats := r.seating_capacity - (select count(*) from Redeems Re where Re.course_id = r.course_id);
   RETURN NEXT;
  END LOOP;
  CLOSE curs;

@@ -734,7 +734,7 @@ end;
 $$ language plpgsql;
 
 	       
-create or replace function add_course_offering
+create or replace procedure add_course_offering
 (course_id char(20), fees double precision, launch_date date, registration_deadline date, target_number_registrations integer, eid char(10), session_date date, start_time int, room_id char(20)) as $$
 declare
  num_available_instructors integer;
@@ -753,7 +753,7 @@ begin
   insert into Offerings
   values (launch_date, course_id, fees, target_number_registrations, registration_deadline, num_registration, start_date, end_date, eid);
   ELSE raise exception 'This instructor is not specialized in this course area.';
- END IF
+ END IF;
 end;
 
 $$ language plpgsql;
@@ -776,7 +776,7 @@ $$ language plpgsql;
 
 			       
 -- <12>
-create or replace function get_available_course_packages ()
+create or replace get_available_course_packages ()
 returns table (pname text, num_free_registrations integer, end_date date, price double precision) as $$
 declare
  curs CURSOR FOR (select * from Course_packages);
@@ -799,19 +799,30 @@ $$ language plpgsql;
 
 			       
 -- <13>
-create or replace function buy_course_package (cust_id, package_id) as $$
+create or replace procedure buy_course_package (f_cust_id char(20), f_package_id char(20)) as $$
 declare
  start_date date;
  end_date date;
- number text;
+ cnumber text;
+ remaining_num integer;
 begin
- select sale_start_date into start_date from Course_packages C where C.package_id = package_id;
- select sale_end_date into end_date from Course_packages C where C.package_id = package_id;
- select Cr.number into number from Credit_cards Cr where Cr.cust_id = cust_id;
- IF (CURRENT_DATE >= start_date and CURRENT_DATE <= end_date) THEN
+ select sale_start_date into start_date from Course_packages C where C.package_id = f_package_id;
+ select sale_end_date into end_date from Course_packages C where C.package_id = f_package_id;
+ select Cr.number into cnumber from Credit_cards Cr where Cr.cust_id = f_cust_id;
+ IF ((select min(B.num_remaining_redemptions) from Buys B where B.package_id = f_package_id) <= 0) THEN
+  remaining_num := -1;
+ ELSE select (num_free_registrations - 1) into remaining_num from Course_packages where package_id = f_package_id;
+ END IF;
+ IF ((select min(B.num_remaining_redemptions) from Buys B where B.package_id = f_package_id) >= 1) THEN
+   select (min(B.num_remaining_redemptions) - 1) into remaining_num from Buys B where B.package_id = f_package_id;
+ END IF;
+ IF (CURRENT_DATE >= start_date and CURRENT_DATE <= end_date and remaining_num >= 0) THEN
   insert into Buys
-  values (CURRENT_DATE, cust_id, number, package_id, 1);
- END IF
+  values (CURRENT_DATE, f_cust_id, cnumber, f_package_id, remaining_num);
+ END IF;
+ IF (remaining_num = -1) THEN
+  raise exception 'There is no remaining number of redemption.';
+ END IF;
 
 end;
 $$ language plpgsql;

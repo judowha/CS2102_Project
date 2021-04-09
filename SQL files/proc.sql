@@ -828,9 +828,9 @@ end;
 $$ language plpgsql;
 
 			       
--- <14>
+-- <14> convert to json
 create or replace function get_my_course_package (f_cust_id char(20))
-returns row_to_json(table (pname text, pdate date, price double precision, num_free_sessions integer, num_of_sessions integer, course_name text, session_date date, session_start_hour integer)) as $$
+returns table (pname text, pdate date, price double precision, num_free_sessions integer, num_of_sessions integer, course_name text, session_date date, session_start_hour integer) as $$
 declare
  curs CURSOR FOR (select * from Course_packages CP
  where CP.package_id = (select package_id from Buys B where B.cust_id = f_cust_id));

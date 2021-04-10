@@ -672,34 +672,48 @@ $$ language plpgsql;
 create or replace function get_available_rooms (f_start_date date, f_end_date date)
 returns table (f_room_id char(20), f_seating_capacity integer, f_rday date, f_hours integer[]) as $$
 declare
- curs CURSOR FOR (select room_id from Rooms order by room_id);
- r RECORD;
+ curs CURSOR FOR (select * from Rooms order by room_id);
+ curs2 CURSOR FOR (select * from Sessions);
+ r1 RECORD;
+ r2 RECORD;
  period integer;
  this_date date;
- i_month integer;
- i_day integer;
  index_i integer;
+ flag integer;
 begin
  OPEN curs;
+ this_date = f_start_date;
  LOOP
-  FETCH curs into r;
-  EXIT WHEN NOT FOUND;
-  this_date = f_start_date;
+  EXIT WHEN this_date = f_end_date + 1;
   LOOP
-   EXIT WHEN this_date = f_end_date + 1;
-   select sum(end_time - start_time) into period from Sessions S where S.rid = r.room_id and S.session_date = this_date;
-   IF (period > 0) THEN
-    f_room_id := r.room_id;
-    f_seating_capacity := (select seating_capacity from Rooms Rm where Rm.room_id = r.room_id);
-    f_rday := this_date;
-    i_month := date_part('Month', this_date) :: integer;
-    i_day := date_part('Day', this_date) :: integer;
-    index_i := i_month * 100 + i_day;
-    f_hours[index_i] := 7 - period;
-   END IF;
-   this_date := this_date + 1;
+  FETCH curs into r1;
+  EXIT WHEN NOT FOUND;
+  select sum(end_time - start_time) into period from Sessions S where S.rid = r1.room_id and S.session_date = this_date;
+  flag := 0;
+  IF (period < 7 and flag = 0) THEN
+   f_room_id := r1.room_id;
+   f_seating_capacity := r1.seating_capacity;
+   f_rday := this_date;
+   f_hours = ARRAY[9, 10, 11, 14, 15, 16, 17];
+   flag := 1;
+   OPEN curs2;
+   LOOP
+    FETCH curs2 INTO r2;
+    EXIT WHEN NOT FOUND;
+    IF (r2.rid = r1.room_id and r2.session_date = this_date) THEN
+     index_i := r2.start_time;
+     LOOP
+      EXIT WHEN index_i >= r2.end_time;
+      select array_remove(f_hours, index_i) into f_hours;
+      index_i := index_i + 1;
+     END LOOP;
+    END IF;
+   END LOOP;
+   CLOSE curs2;
+   RETURN NEXT;
+  END IF;
   END LOOP;
-  RETURN NEXT;
+  this_date := this_date + 1;
  END LOOP;
  CLOSE curs;
 end;

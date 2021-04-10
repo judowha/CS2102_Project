@@ -720,27 +720,9 @@ end;
 $$ language plpgsql;
 
 
-CREATE TRIGGER registration_deadline_trigger
-BEFORE INSERT ON Offerings
-FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
-
 	       
 -- <10> // find valid instructor
-create or replace function target_number_registrations_func() returns trigger as $
-begin
- IF (NEW.target_number_registrations > NEW.seating_capacity) THEN
-  NEW.targer_number_registrations := NEW.seating_capacity;
- END IF;
- RETURN NEW;
-end;
-$$ language plpgsql;
 
-create trigger target_number_registrations_trigger
-before insert on Offerings
-for each row execute function target_number_registrations_func();
-
-
-	       
 create or replace procedure add_course_offering
 (f_course_id char(20), f_fees double precision, f_launch_date date, f_registration_deadline date, f_target_number_registrations integer, f_eid char(10), f_session_date date, f_start_time int, f_room_id char(20)) as $$
 declare
@@ -750,15 +732,14 @@ declare
  start_date date;
  end_date date;
 begin
- create view Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = f_course_id));
 
- IF ((select * from Specialized_instructors S where S.eid = f_eid) IS NOT NULL) THEN
+ IF ((select S.name from Specializes S where S.name = (select area_name from Courses C where C.course_id = f_course_id)) IS NOT NULL) THEN
   select seating_capacity into num_registration from Rooms R where R.room_id = f_room_id;
   select min (session_date) into start_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
   select max (session_date) into end_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
   insert into Offerings
   values (f_launch_date, f_course_id, f_fees, f_target_number_registrations, f_registration_deadline, num_registration, f_start_date, f_end_date, f_eid);
-  ELSE raise exception 'This instructor is not specialized in this course area.';
+  ELSE raise exception 'No instructor is specialized in this course area.';
  END IF;
 end;
 
@@ -1483,4 +1464,16 @@ begin
 end;
 $$ language plpgsql;
 
+create or replace function target_number_registrations_func() returns trigger as $
+begin
+ IF (NEW.target_number_registrations > NEW.seating_capacity) THEN
+  NEW.targer_number_registrations := NEW.seating_capacity;
+ END IF;
+ RETURN NEW;
+end;
+$$ language plpgsql;
+
+create trigger target_number_registrations_trigger
+before insert on Offerings
+for each row execute function target_number_registrations_func();
 

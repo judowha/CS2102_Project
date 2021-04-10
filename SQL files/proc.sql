@@ -763,7 +763,10 @@ begin
  if pre_pid is null then pid := 'P00001';
  ELSE pid := concat('P', right(concat('00000', cast( ( cast(right(pre_pid, 5)as integer) + 1) as text )), 5));
  end if;
- insert into Course_packages values (pid, price, num, pname, start_date, end_date);
+ IF (start_date < end_date) THEN
+  insert into Course_packages values (pid, price, num, pname, start_date, end_date);
+ ELSE raise exception 'The end date cannot be before start date!';
+ END IF;
 end;
 $$ language plpgsql;
 

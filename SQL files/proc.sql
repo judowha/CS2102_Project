@@ -672,34 +672,48 @@ $$ language plpgsql;
 create or replace function get_available_rooms (f_start_date date, f_end_date date)
 returns table (f_room_id char(20), f_seating_capacity integer, f_rday date, f_hours integer[]) as $$
 declare
- curs CURSOR FOR (select room_id from Rooms order by room_id);
- r RECORD;
+ curs CURSOR FOR (select * from Rooms order by room_id);
+ curs2 CURSOR FOR (select * from Sessions);
+ r1 RECORD;
+ r2 RECORD;
  period integer;
  this_date date;
- i_month integer;
- i_day integer;
  index_i integer;
+ flag integer;
 begin
  OPEN curs;
+ this_date = f_start_date;
  LOOP
-  FETCH curs into r;
-  EXIT WHEN NOT FOUND;
-  this_date = f_start_date;
+  EXIT WHEN this_date = f_end_date + 1;
   LOOP
-   EXIT WHEN this_date = f_end_date + 1;
-   select sum(end_time - start_time) into period from Sessions S where S.rid = r.room_id and S.session_date = this_date;
-   IF (period > 0) THEN
-    f_room_id := r.room_id;
-    f_seating_capacity := (select seating_capacity from Rooms Rm where Rm.room_id = r.room_id);
-    f_rday := this_date;
-    i_month := date_part('Month', this_date) :: integer;
-    i_day := date_part('Day', this_date) :: integer;
-    index_i := i_month * 100 + i_day;
-    f_hours[index_i] := 7 - period;
-   END IF;
-   this_date := this_date + 1;
+  FETCH curs into r1;
+  EXIT WHEN NOT FOUND;
+  select sum(end_time - start_time) into period from Sessions S where S.rid = r1.room_id and S.session_date = this_date;
+  flag := 0;
+  IF (period < 7 and flag = 0) THEN
+   f_room_id := r1.room_id;
+   f_seating_capacity := r1.seating_capacity;
+   f_rday := this_date;
+   f_hours = ARRAY[9, 10, 11, 14, 15, 16, 17];
+   flag := 1;
+   OPEN curs2;
+   LOOP
+    FETCH curs2 INTO r2;
+    EXIT WHEN NOT FOUND;
+    IF (r2.rid = r1.room_id and r2.session_date = this_date) THEN
+     index_i := r2.start_time;
+     LOOP
+      EXIT WHEN index_i >= r2.end_time;
+      select array_remove(f_hours, index_i) into f_hours;
+      index_i := index_i + 1;
+     END LOOP;
+    END IF;
+   END LOOP;
+   CLOSE curs2;
+   RETURN NEXT;
+  END IF;
   END LOOP;
-  RETURN NEXT;
+  this_date := this_date + 1;
  END LOOP;
  CLOSE curs;
 end;
@@ -826,24 +840,27 @@ $$ language plpgsql;
 			       
 -- <14> convert to json
 create or replace function get_my_course_package (f_cust_id char(20))
-returns table (pname text, pdate date, price double precision, num_free_sessions integer, num_of_sessions integer, course_name text, session_date date, session_start_hour integer) as $$
+returns table (pname text, pdate date, f_price double precision, num_free_sessions integer, num_of_sessions integer, course_name text, session_date date, session_start_hour integer) as $$
 declare
- curs CURSOR FOR (select * from Course_packages CP
- where CP.package_id = (select package_id from Buys B where B.cust_id = f_cust_id));
+ curs CURSOR FOR (select * from Buys B where B.cust_id = f_cust_id order by package_id asc);
  r RECORD;
  cid char (20);
+ num_redeems integer;
+ num_free_reg integer;
 begin
  OPEN curs;
  LOOP
   FETCH curs INTO r;
   EXIT WHEN NOT FOUND;
-  pname := r.name;
-  select B.buy_date into pdate from Buys B where B.package_id = r.package_id and B.cust_id = f_cust_id;
-  price := r.price;
-  num_free_sessions := r.num_free_registrations;
+  pname := (select name from Course_packages where package_id = r.package_id);
+  pdate := r.buy_date;
+  f_price := (select price from Course_packages where package_id = r.package_id);
+  num_free_reg := (select num_free_registrations from Course_packages where package_id = r.package_id);
+  num_redeems := (select count(*) from Redeems Re where Re.cust_id = f_cust_id and Re.package_id = r.package_id);
+  num_free_sessions := num_free_reg - num_redeems;
   select B.num_remaining_redemptions into num_of_sessions from Buys B where B.package_id = r.package_id and B.cust_id = f_cust_id;
   select Re.course_id into cid from Redeems Re where Re.cust_id = f_cust_id and Re.package_id = r.package_id;
-  select C.title into course_name from Courses C where C.course_id = cid;
+  select Co.title into course_name from Courses Co where Co.course_id = cid;
   select S.session_date into session_date from Sessions S where S.course_id = cid;
   select S.start_time into session_start_hour from Sessions S where S.course_id = cid;
   return NEXT;
@@ -1368,7 +1385,7 @@ CREATE OR REPLACE FUNCTION maximum_workHour_notice() RETURNS TRIGGER AS $$
 		select sum(end_time) - sum(start_time) into totalHour
 				from sessions s
 				where s.eid = new.eid
-				and  date_part('month',s.date) = date_part('month',new.start_date)
+				and  date_part('month',s.session_date) = date_part('month',new.session_date)
 				and s.course_id = new.course_id;
 		if(new.end_time - new.start_time + totalHour > 30) then 
 			raise notice 'the total work hour for instructor can not exceed 30 hours per month';
@@ -1379,9 +1396,11 @@ CREATE OR REPLACE FUNCTION maximum_workHour_notice() RETURNS TRIGGER AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE TRIGGER maximum_workHour
 BEFORE insert on sessions
 FOR EACH ROW EXECUTE FUNCTION  maximum_workHour_notice();
+
 
 CREATE OR REPLACE FUNCTION check_remove_employee() RETURNS TRIGGER AS $$
 	declare

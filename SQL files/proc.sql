@@ -826,24 +826,27 @@ $$ language plpgsql;
 			       
 -- <14> convert to json
 create or replace function get_my_course_package (f_cust_id char(20))
-returns table (pname text, pdate date, price double precision, num_free_sessions integer, num_of_sessions integer, course_name text, session_date date, session_start_hour integer) as $$
+returns table (pname text, pdate date, f_price double precision, num_free_sessions integer, num_of_sessions integer, course_name text, session_date date, session_start_hour integer) as $$
 declare
- curs CURSOR FOR (select * from Course_packages CP
- where CP.package_id = (select package_id from Buys B where B.cust_id = f_cust_id));
+ curs CURSOR FOR (select * from Buys B where B.cust_id = f_cust_id order by package_id asc);
  r RECORD;
  cid char (20);
+ num_redeems integer;
+ num_free_reg integer;
 begin
  OPEN curs;
  LOOP
   FETCH curs INTO r;
   EXIT WHEN NOT FOUND;
-  pname := r.name;
-  select B.buy_date into pdate from Buys B where B.package_id = r.package_id and B.cust_id = f_cust_id;
-  price := r.price;
-  num_free_sessions := r.num_free_registrations;
+  pname := (select name from Course_packages where package_id = r.package_id);
+  pdate := r.buy_date;
+  f_price := (select price from Course_packages where package_id = r.package_id);
+  num_free_reg := (select num_free_registrations from Course_packages where package_id = r.package_id);
+  num_redeems := (select count(*) from Redeems Re where Re.cust_id = f_cust_id and Re.package_id = r.package_id);
+  num_free_sessions := num_free_reg - num_redeems;
   select B.num_remaining_redemptions into num_of_sessions from Buys B where B.package_id = r.package_id and B.cust_id = f_cust_id;
   select Re.course_id into cid from Redeems Re where Re.cust_id = f_cust_id and Re.package_id = r.package_id;
-  select C.title into course_name from Courses C where C.course_id = cid;
+  select Co.title into course_name from Courses Co where Co.course_id = cid;
   select S.session_date into session_date from Sessions S where S.course_id = cid;
   select S.start_time into session_start_hour from Sessions S where S.course_id = cid;
   return NEXT;

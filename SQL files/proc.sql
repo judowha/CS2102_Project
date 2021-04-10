@@ -328,7 +328,7 @@ begin
   end_hour := start_hour + (select duration from Courses where course_id = in_course_id);
   deadline := (select registration_deadline from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date));
   
-  if ((in_day < deadline) and ((start_hour >= 9) and (end_hour <= 12)) or ((start_hour >= 14) and (end_hour <= 18))) then
+  if ((CURRENT_DATE <= deadline) and ((start_hour >= 9) and (end_hour <= 12)) or ((start_hour >= 14) and (end_hour <= 18))) then
     raise notice 'Begin insertion';
     insert into Sessions
     values (in_number, in_day, start_hour, end_hour, in_launch_date, in_course_id, in_room_id, instructor_id);

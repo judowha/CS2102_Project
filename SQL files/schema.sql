@@ -160,19 +160,6 @@ create table Redeems (
   foreign key (package_id) 		  references Course_packages on delete cascade on update cascade,
   primary key (cust_id, number, package_id,sid,launch_date,course_id));
 
-/*
-Table conduct is put into table sessions
-
-create table Conducts (
-  room_id       char(20),
-  eid      	char(10),
-  sid     	char(20),
-  launch_date	date,
-  course_id 	char(20),
-  foreign key (sid,launch_date,course_id) references Sessions  	 on delete cascade on update cascade,
-  foreign key (room_id)    		  references Rooms    	 on delete cascade,
-  foreign key (eid) 			  references instructors on delete cascade on update cascade);
-*/
 
 create table Specializes (
   eid     char(10) not NULL,
@@ -194,17 +181,7 @@ create table Registers(
   foreign key (cust_id)			  references Customers 	  on delete cascade on update cascade,
   primary key (sid, course_id, launch_date,cust_id,number,registers_date));
 
-/*
-table owns is put into table credit_cards
-create table Owns(
-  number text,
-  cust_id char(20) not null,
-  from_date date,
-  foreign key (number) references Credit_cards on delete cascade on update cascade,
-  foreign key (cust_id)references Customers    on delete cascade on update cascade,
-  primary key (number));
-	       
-*/
+
 create table Cancels(
   sid 		char(20),
   course_id 	char(20),

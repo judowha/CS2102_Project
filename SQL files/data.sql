@@ -1,4 +1,4 @@
-set search_path to team91;
+
 insert into Employees
 values ('E00001', 'Wu Haitao', '80968510', 'wuhaitao@email.com', 'someWhere', '2021-01-01', null),
        ('E00002', 'Bob', '68985081', 'Bob@email.com', 'someWhere', '2021-01-02', null),

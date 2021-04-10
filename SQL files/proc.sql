@@ -718,7 +718,6 @@ FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
 
 create or replace function registration_deadline_func() RETURNS TRIGGER AS $$
 begin
- select
  IF (NEW.start_date - NEW.registration_deadline < 10) THEN
   NEW.registration_deadline := NEW.start_date - 10;
  END IF;
@@ -743,7 +742,7 @@ $$ language plpgsql;
 
 	       
 create or replace procedure add_course_offering
-(course_id char(20), fees double precision, launch_date date, registration_deadline date, target_number_registrations integer, eid char(10), session_date date, start_time int, room_id char(20)) as $$
+(f_course_id char(20), f_fees double precision, f_launch_date date, f_registration_deadline date, f_target_number_registrations integer, f_eid char(10), f_session_date date, f_start_time int, f_room_id char(20)) as $$
 declare
  num_available_instructors integer;
  this_course_id char(20);
@@ -751,15 +750,15 @@ declare
  start_date date;
  end_date date;
 begin
- with Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = course_id))
+ with Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = f_course_id))
  select count(*) into num_available_instructors from Specialized_instructors;
 
  IF (num_available_instructors >= 1) THEN
-  select seating_capacity into num_registration from Rooms R where R.room_id = room_id;
-  select min (session_date) into start_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
-  select max (session_date) into end_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
+  select seating_capacity into num_registration from Rooms R where R.room_id = f_room_id;
+  select min (session_date) into start_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
+  select max (session_date) into end_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
   insert into Offerings
-  values (launch_date, course_id, fees, target_number_registrations, registration_deadline, num_registration, start_date, end_date, eid);
+  values (f_launch_date, f_course_id, f_fees, f_target_number_registrations, f_registration_deadline, num_registration, f_start_date, f_end_date, f_eid);
   ELSE raise exception 'This instructor is not specialized in this course area.';
  END IF;
 end;
@@ -784,7 +783,7 @@ $$ language plpgsql;
 
 			       
 -- <12>
-create or replace get_available_course_packages ()
+create or replace function get_available_course_packages ()
 returns table (pname text, num_free_registrations integer, end_date date, price double precision) as $$
 declare
  curs CURSOR FOR (select * from Course_packages);

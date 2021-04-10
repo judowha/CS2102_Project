@@ -1098,13 +1098,18 @@ end;
 $$ language plpgsql;
 
 
--- <20> refund没有
+-- <20> 
 create or replace procedure cancel_registration(input_cust_id char(20), input_launch_date date, input_course_id char(20))
 as $$
 declare
-	curs1 cursor for (select * from Registers natural left join (Sessions natural join Offerings));
+	curs1 cursor for (	select R.sid as sid, R.cust_id as cust_id, R.launch_date as launch_date, R.course_id as course_id, S.session_date as session_date, O.fees as fees
+				from Registers R, Sessions S, Offerings O
+				where R.sid = S.sid and R.launch_date = S.launch_date and R.course_id = S.course_id
+				and O.launch_date = S.launch_date and O.course_id = S.course_id);
 	r1 record;
-	curs2 cursor for (select * from Redeems natural left join Sessions);
+	curs2 cursor for (	select R.sid as sid, R.cust_id as cust_id, R.launch_date as launch_date, R.course_id as course_id, S.session_date as session_date
+				from Redeems R, Sessions S
+				where R.sid = S.sid and R.launch_date = S.launch_date and R.course_id = S.course_id);
 	r2 record;
 	request_flag integer;
 
@@ -1133,12 +1138,12 @@ begin
 		if(r2.cust_id = input_cust_id and r2.launch_date = input_launch_date and r2.course_id = input_course_id) then
 		request_flag := 1;		
 			if (r2.session_date >= (current_date + '7 day'::interval)) then
-				insert into Cancels values (r1.sid, r1.course_id, r1.launch_date, r1.cust_id, current_date, 0, 1);
+				insert into Cancels values (r2.sid, r2.course_id, r2.launch_date, r2.cust_id, current_date, 0, 1);
 				update Redeems 
 				set num_remaining_redemptions = num_remaining_redemptions +1 
 				where cust_id = input_cust_id and launch_date = input_launch_date and course_id = input_course_id;
 			else 
-				insert into Cancels values (r1.sid, r1.course_id, r1.launch_date, r1.cust_id, current_date, 0, 0);
+				insert into Cancels values (r2.sid, r2.course_id, r2.launch_date, r2.cust_id, current_date, 0, 0);
 			end if;
 		end if;
 	end loop;

@@ -328,8 +328,10 @@ begin
   deadline := (select registration_deadline from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date));
   
   if ((in_day < deadline) and ((start_hour >= 9) and (end_hour <= 12)) or ((start_hour >= 14) and (end_hour <= 18))) then
+    raise notice 'Begin insertion';
     insert into Sessions
     values (in_number, in_day, start_hour, end_hour, in_launch_date, in_course_id, in_room_id, instructor_id);
+    raise notice 'Insertion completed';
     new_offering_start_date := (select MIN(session_date)
                                 from Sessions
                                 where (course_id = in_course_id)

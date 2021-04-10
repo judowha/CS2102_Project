@@ -656,16 +656,17 @@ $$ language plpgsql;
 			      
 -- <8>
 create or replace function find_rooms (f_session_date date, f_start_time integer, f_duration integer)
-returns table(room_id char(20)) as $$
+returns table(f_room_id char(20)) as $$
 declare
- curs cursor for (select S.rid from Sessions S where S.session_date = f_session_date and S.start_time = f_start_time and S.end_time = (f_start_time + f_duration));
+ curs cursor for (select room_id from Rooms EXCEPT select S.rid from Sessions S where (S.session_date = f_session_date)
+ and ((S.start_time >= f_start_time and S.start_time < (f_start_time + f_duration)) or (S.end_time > f_start_time and S.end_time <= (f_start_time + f_duration))) order by room_id asc);
  r record;
 begin
  open curs;
  LOOP
   fetch curs into r;
   exit when not found;
-  room_id := r.rid;
+  f_room_id := r.room_id;
   return next;
  end loop;
 

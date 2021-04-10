@@ -1,3 +1,4 @@
+
 create or replace procedure add_manage (_name text[],_eid char(20)) as $$
 	declare
 		index_i integer;
@@ -41,7 +42,7 @@ create or replace procedure add_specializes (name text[],eid char(20)) as $$
 	end;
 $$ language plpgsql;
 
-
+--<1>
 create or REPLACE PROCEDURE add_employees (name char(30), phone text, email text,
 							address text, salary_inf text,  join_date date, 
 							category text, course_area text[]) as $$ 
@@ -82,14 +83,14 @@ declare
     end;
 $$ LANGUAGE plpgsql;
 
-
+--<2>
 create or replace procedure remove_employees(_eid char(20), _depart_time date) as $$
 	begin
 		update employees set depart_date = _depart_time where eid = _eid;
 	end;
 $$ language plpgsql;
 
-
+--<3>
 create or REPLACE PROCEDURE add_customers (name char(30), phone text, email text, address text, 
 										   card_number text, expiry_date date, cvv integer) as $$ 
 declare 
@@ -107,7 +108,7 @@ declare
 	
 $$ LANGUAGE plpgsql;
 
-
+--<4>
 create or REPLACE PROCEDURE update_credit_card (_cust_id text, _card_number text, _expiry_date date, _cvv integer) as $$ 
 	declare
 		previous_number text;
@@ -125,7 +126,7 @@ create or REPLACE PROCEDURE update_credit_card (_cust_id text, _card_number text
     end;
 $$ LANGUAGE plpgsql;
 
-
+--<5>
 create or REPLACE PROCEDURE add_course (tile text, description text, areas text, duration integer) as $$ 
 	declare 
 		pre_eid char(20);
@@ -140,7 +141,7 @@ create or REPLACE PROCEDURE add_course (tile text, description text, areas text,
     end;
 $$ LANGUAGE plpgsql;
 
-
+--<6>
 create or replace function find_instructors(_course_id char(20),_session_date date, start_hour integer )
 	returns table(eid char(20), name text) as $$
 	declare 
@@ -194,7 +195,7 @@ create or replace function find_instructors(_course_id char(20),_session_date da
 	end;
 $$ language plpgsql;
 
-
+--<7>
 create or replace function get_available_instructors(_course_id char(20),_start_date date, _end_date date )
 	returns table(eid char(20), name text, totalHour integer, freeDate date, freeHour integer[]) as $$
 	declare 

@@ -378,7 +378,7 @@ begin
       status := 'Part time';
       num_work_days := null;
       monthly_salary := null;
-      num_work_hours := (select SUM(end_time - start_time) from Conducts C, Sessions S where (C.sid = S.sid) and (C.eid = r.eid));
+      num_work_hours := (select SUM(S.end_time - S.start_time + 1) from Sessions S where S.eid = r.eid);
       --这句话还没测试过
       hourly_rate := (select P.hourly_rate from Part_time_Emp P where P.eid = r.eid);
       salary_amount := num_work_hours * hourly_rate;

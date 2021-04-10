@@ -1,4 +1,3 @@
-
 create or replace procedure add_manage (_name text[],_eid char(20)) as $$
 	declare
 		index_i integer;
@@ -1476,10 +1475,6 @@ for each row execute function check_package_num_func();
 					    
 
 -- trigger for registration deadline
-CREATE TRIGGER registration_deadline_trigger
-BEFORE INSERT ON Offerings
-FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
-
 create or replace function registration_deadline_func() RETURNS TRIGGER AS $$
 begin
  IF (NEW.start_date - NEW.registration_deadline < 10) THEN
@@ -1489,7 +1484,12 @@ begin
 end;
 $$ language plpgsql;
 
-create or replace function target_number_registrations_func() returns trigger as $
+CREATE TRIGGER registration_deadline_trigger
+BEFORE INSERT ON Offerings
+FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
+
+
+create or replace function target_number_registrations_func() returns trigger as $$
 begin
  IF (NEW.target_number_registrations > NEW.seating_capacity) THEN
   NEW.targer_number_registrations := NEW.seating_capacity;

@@ -415,14 +415,6 @@ begin
 end;
 $$ language plpgsql;
 
-
-create or replace function promote_courses()
-returns table(cust_id char(20), cust_name char(30), course_area char(20), course_id char(20), course_title text, launch_date date, registration_ddl date, offering_fee double precision) as $$
-declare
-begin
-end;
-$$ language plpgsql;
-
 					   
 create or replace function top_packages(IN n int)
 returns table(package_id char(20), num_free_sessions int, price double precision, start_date date, end_date date, num_sold int) as $$
@@ -714,13 +706,13 @@ end;
 $$ language plpgsql;
 
 
+CREATE TRIGGER registration_deadline_trigger
+BEFORE INSERT ON Offerings
+FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
+
 	       
 -- <10> // find valid instructor
-create trigger target_number_registrations_trigger
-before insert on Offerings
-for each row execute function target_number_registrations_func();
-
-create or replace function target_number_registrations_func() returns trigger as $$
+create or replace function target_number_registrations_func() returns trigger as $
 begin
  IF (NEW.target_number_registrations > NEW.seating_capacity) THEN
   NEW.targer_number_registrations := NEW.seating_capacity;
@@ -728,6 +720,11 @@ begin
  RETURN NEW;
 end;
 $$ language plpgsql;
+
+create trigger target_number_registrations_trigger
+before insert on Offerings
+for each row execute function target_number_registrations_func();
+
 
 	       
 create or replace procedure add_course_offering
@@ -1425,12 +1422,11 @@ CREATE OR REPLACE FUNCTION check_remove_employee() RETURNS TRIGGER AS $$
 	end;	
 $$ LANGUAGE plpgsql;
 
+CREATE TRIGGER remove_employees
+BEFORE update on employees
+FOR EACH ROW EXECUTE FUNCTION  check_remove_employee();
 
-create tigger check_package_num_trigger
-before insert on Buys
-for each row execute function check_package_num_func();
-
-create or replace function check_package_num_func() returns tigger 
+create or replace function check_package_num_func() returns trigger 
 as $$
 declare 
 	num_remaining_session integer;
@@ -1445,13 +1441,15 @@ begin
 		raise notice 'You can have at most one active or partially active package.'; 
 		return null;
 	end if;
+	return new;
 end;
 $$ language plpgsql;
+
+create trigger check_package_num_trigger
+before insert on Buys
+for each row execute function check_package_num_func();
 					    
 					    
-CREATE TRIGGER remove_employees
-BEFORE update on employees
-FOR EACH ROW EXECUTE FUNCTION  check_remove_employee();
 
 -- trigger for registration deadline
 CREATE TRIGGER registration_deadline_trigger

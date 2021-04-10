@@ -329,8 +329,10 @@ begin
   deadline := (select registration_deadline from Offerings where (course_id = in_course_id) and (launch_date = in_launch_date));
   
   if ((in_day < deadline) and ((start_hour >= 9) and (end_hour <= 12)) or ((start_hour >= 14) and (end_hour <= 18))) then
+    raise notice 'Begin insertion';
     insert into Sessions
     values (in_number, in_day, start_hour, end_hour, in_launch_date, in_course_id, in_room_id, instructor_id);
+    raise notice 'Insertion completed';
     new_offering_start_date := (select MIN(session_date)
                                 from Sessions
                                 where (course_id = in_course_id)
@@ -379,7 +381,7 @@ begin
       status := 'Part time';
       num_work_days := null;
       monthly_salary := null;
-      num_work_hours := (select SUM(end_time - start_time) from Conducts C, Sessions S where (C.sid = S.sid) and (C.eid = r.eid));
+      num_work_hours := (select SUM(S.end_time - S.start_time + 1) from Sessions S where S.eid = r.eid);
       --这句话还没测试过
       hourly_rate := (select P.hourly_rate from Part_time_Emp P where P.eid = r.eid);
       salary_amount := num_work_hours * hourly_rate;
@@ -648,16 +650,17 @@ $$ language plpgsql;
 			      
 -- <8>
 create or replace function find_rooms (f_session_date date, f_start_time integer, f_duration integer)
-returns table(room_id char(20)) as $$
+returns table(f_room_id char(20)) as $$
 declare
- curs cursor for (select S.rid from Sessions S where S.session_date = f_session_date and S.start_time = f_start_time and S.end_time = (f_start_time + f_duration));
+ curs cursor for (select room_id from Rooms EXCEPT select S.rid from Sessions S where (S.session_date = f_session_date)
+ and ((S.start_time >= f_start_time and S.start_time < (f_start_time + f_duration)) or (S.end_time > f_start_time and S.end_time <= (f_start_time + f_duration))) order by room_id asc);
  r record;
 begin
  open curs;
  LOOP
   fetch curs into r;
   exit when not found;
-  room_id := r.rid;
+  f_room_id := r.room_id;
   return next;
  end loop;
 
@@ -702,16 +705,6 @@ begin
 end;
 $$ language plpgsql;
 
-	       
--- trigger for registration deadline
-create or replace function registration_deadline_func() RETURNS TRIGGER AS $$
-begin
- IF (NEW.start_date - NEW.registration_deadline < 10) THEN
-  NEW.registration_deadline := NEW.start_date - 10;
- END IF;
- RETURN NEW;
-end;
-$$ language plpgsql;
 
 CREATE TRIGGER registration_deadline_trigger
 BEFORE INSERT ON Offerings
@@ -719,7 +712,7 @@ FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
 
 	       
 -- <10> // find valid instructor
-create or replace function target_number_registrations_func() returns trigger as $$
+create or replace function target_number_registrations_func() returns trigger as $
 begin
  IF (NEW.target_number_registrations > NEW.seating_capacity) THEN
   NEW.targer_number_registrations := NEW.seating_capacity;
@@ -735,7 +728,7 @@ for each row execute function target_number_registrations_func();
 
 	       
 create or replace procedure add_course_offering
-(course_id char(20), fees double precision, launch_date date, registration_deadline date, target_number_registrations integer, eid char(10), session_date date, start_time int, room_id char(20)) as $$
+(f_course_id char(20), f_fees double precision, f_launch_date date, f_registration_deadline date, f_target_number_registrations integer, f_eid char(10), f_session_date date, f_start_time int, f_room_id char(20)) as $$
 declare
  num_available_instructors integer;
  this_course_id char(20);
@@ -743,15 +736,14 @@ declare
  start_date date;
  end_date date;
 begin
- with Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = course_id))
- select count(*) into num_available_instructors from Specialized_instructors;
+ create view Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = f_course_id));
 
- IF (num_available_instructors >= 1) THEN
-  select seating_capacity into num_registration from Rooms R where R.room_id = room_id;
-  select min (session_date) into start_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
-  select max (session_date) into end_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
+ IF ((select * from Specialized_instructors S where S.eid = f_eid) IS NOT NULL) THEN
+  select seating_capacity into num_registration from Rooms R where R.room_id = f_room_id;
+  select min (session_date) into start_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
+  select max (session_date) into end_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
   insert into Offerings
-  values (launch_date, course_id, fees, target_number_registrations, registration_deadline, num_registration, start_date, end_date, eid);
+  values (f_launch_date, f_course_id, f_fees, f_target_number_registrations, f_registration_deadline, num_registration, f_start_date, f_end_date, f_eid);
   ELSE raise exception 'This instructor is not specialized in this course area.';
  END IF;
 end;
@@ -770,7 +762,10 @@ begin
  if pre_pid is null then pid := 'P00001';
  ELSE pid := concat('P', right(concat('00000', cast( ( cast(right(pre_pid, 5)as integer) + 1) as text )), 5));
  end if;
- insert into Course_packages values (pid, price, num, pname, start_date, end_date);
+ IF (start_date < end_date) THEN
+  insert into Course_packages values (pid, price, num, pname, start_date, end_date);
+ ELSE raise exception 'The end date cannot be before start date!';
+ END IF;
 end;
 $$ language plpgsql;
 
@@ -1456,6 +1451,18 @@ for each row execute function check_package_num_func();
 					    
 					    
 
+-- trigger for registration deadline
+CREATE TRIGGER registration_deadline_trigger
+BEFORE INSERT ON Offerings
+FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
 
+create or replace function registration_deadline_func() RETURNS TRIGGER AS $$
+begin
+ IF (NEW.start_date - NEW.registration_deadline < 10) THEN
+  NEW.registration_deadline := NEW.start_date - 10;
+ END IF;
+ RETURN NEW;
+end;
+$$ language plpgsql;
 
 

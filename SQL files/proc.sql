@@ -673,29 +673,36 @@ $$ language plpgsql;
 
 			   
 -- <9>
-create or replace function get_available_rooms (start_date date, end_date date)
-returns table (room_id char(20), seating_capacity integer, rday date, hours integer[]) as $$
+create or replace function get_available_rooms (f_start_date date, f_end_date date)
+returns table (f_room_id char(20), f_seating_capacity integer, f_rday date, f_hours integer[]) as $$
 declare
  curs CURSOR FOR (select room_id from Rooms order by room_id);
  r RECORD;
  period integer;
  this_date date;
+ i_month integer;
+ i_day integer;
+ index_i integer;
 begin
  OPEN curs;
  LOOP
   FETCH curs into r;
   EXIT WHEN NOT FOUND;
-  this_date = start_date;
+  this_date = f_start_date;
   LOOP
-   EXIT WHEN this_date = end_date + 1;
-   with Sessions1 as (select S.sid from Sessions S where S.room_id = r.room_id)
-   select sum (end_time - start_time) into period from Sessions S where S.sid = Sessions1.sid and S.session_date = this_date;
-   room_id := r.room_id;
-   seating_capacity := select seating_capacity from Rooms Rm where Rm.room_id = r.room_id;
-   rday := this_date;
-   hours[cast(this_date) as integer] := 7 - period;
+   EXIT WHEN this_date = f_end_date + 1;
+   select sum(end_time - start_time) into period from Sessions S where S.rid = r.room_id and S.session_date = this_date;
+   IF (period > 0) THEN
+    f_room_id := r.room_id;
+    f_seating_capacity := (select seating_capacity from Rooms Rm where Rm.room_id = r.room_id);
+    f_rday := this_date;
+    i_month := date_part('Month', this_date) :: integer;
+    i_day := date_part('Day', this_date) :: integer;
+    index_i := i_month * 100 + i_day;
+    f_hours[index_i] := 7 - period;
+   END IF;
    this_date := this_date + 1;
-  END LOOP
+  END LOOP;
   RETURN NEXT;
  END LOOP;
  CLOSE curs;

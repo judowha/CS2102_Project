@@ -710,20 +710,6 @@ begin
 end;
 $$ language plpgsql;
 
-	       
--- trigger for registration deadline
-CREATE TRIGGER registration_deadline_trigger
-BEFORE INSERT ON Offerings
-FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
-
-create or replace function registration_deadline_func() RETURNS TRIGGER AS $$
-begin
- IF (NEW.start_date - NEW.registration_deadline < 10) THEN
-  NEW.registration_deadline := NEW.start_date - 10;
- END IF;
- RETURN NEW;
-end;
-$$ language plpgsql;
 
 	       
 -- <10> // find valid instructor
@@ -750,10 +736,9 @@ declare
  start_date date;
  end_date date;
 begin
- with Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = f_course_id))
- select count(*) into num_available_instructors from Specialized_instructors;
+ create view Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = f_course_id));
 
- IF (num_available_instructors >= 1) THEN
+ IF ((select * from Specialized_instructors S where S.eid = f_eid) IS NOT NULL) THEN
   select seating_capacity into num_registration from Rooms R where R.room_id = f_room_id;
   select min (session_date) into start_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
   select max (session_date) into end_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
@@ -1462,6 +1447,18 @@ CREATE TRIGGER remove_employees
 BEFORE update on employees
 FOR EACH ROW EXECUTE FUNCTION  check_remove_employee();
 
+-- trigger for registration deadline
+CREATE TRIGGER registration_deadline_trigger
+BEFORE INSERT ON Offerings
+FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
 
+create or replace function registration_deadline_func() RETURNS TRIGGER AS $$
+begin
+ IF (NEW.start_date - NEW.registration_deadline < 10) THEN
+  NEW.registration_deadline := NEW.start_date - 10;
+ END IF;
+ RETURN NEW;
+end;
+$$ language plpgsql;
 
 

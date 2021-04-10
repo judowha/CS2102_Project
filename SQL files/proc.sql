@@ -1385,7 +1385,7 @@ CREATE OR REPLACE FUNCTION maximum_workHour_notice() RETURNS TRIGGER AS $$
 		select sum(end_time) - sum(start_time) into totalHour
 				from sessions s
 				where s.eid = new.eid
-				and  date_part('month',s.date) = date_part('month',new.start_date)
+				and  date_part('month',s.session_date) = date_part('month',new.session_date)
 				and s.course_id = new.course_id;
 		if(new.end_time - new.start_time + totalHour > 30) then 
 			raise notice 'the total work hour for instructor can not exceed 30 hours per month';
@@ -1396,9 +1396,11 @@ CREATE OR REPLACE FUNCTION maximum_workHour_notice() RETURNS TRIGGER AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE TRIGGER maximum_workHour
 BEFORE insert on sessions
 FOR EACH ROW EXECUTE FUNCTION  maximum_workHour_notice();
+
 
 CREATE OR REPLACE FUNCTION check_remove_employee() RETURNS TRIGGER AS $$
 	declare

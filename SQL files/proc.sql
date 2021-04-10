@@ -1,3 +1,4 @@
+
 create or replace procedure add_manage (_name text[],_eid char(20)) as $$
 	declare
 		index_i integer;
@@ -41,7 +42,7 @@ create or replace procedure add_specializes (name text[],eid char(20)) as $$
 	end;
 $$ language plpgsql;
 
-
+--<1>
 create or REPLACE PROCEDURE add_employees (name char(30), phone text, email text,
 							address text, salary_inf text,  join_date date, 
 							category text, course_area text[]) as $$ 
@@ -82,14 +83,14 @@ declare
     end;
 $$ LANGUAGE plpgsql;
 
-
+--<2>
 create or replace procedure remove_employees(_eid char(20), _depart_time date) as $$
 	begin
 		update employees set depart_date = _depart_time where eid = _eid;
 	end;
 $$ language plpgsql;
 
-
+--<3>
 create or REPLACE PROCEDURE add_customers (name char(30), phone text, email text, address text, 
 										   card_number text, expiry_date date, cvv integer) as $$ 
 declare 
@@ -107,7 +108,7 @@ declare
 	
 $$ LANGUAGE plpgsql;
 
-
+--<4>
 create or REPLACE PROCEDURE update_credit_card (_cust_id text, _card_number text, _expiry_date date, _cvv integer) as $$ 
 	declare
 		previous_number text;
@@ -125,7 +126,7 @@ create or REPLACE PROCEDURE update_credit_card (_cust_id text, _card_number text
     end;
 $$ LANGUAGE plpgsql;
 
-
+--<5>
 create or REPLACE PROCEDURE add_course (tile text, description text, areas text, duration integer) as $$ 
 	declare 
 		pre_eid char(20);
@@ -140,7 +141,7 @@ create or REPLACE PROCEDURE add_course (tile text, description text, areas text,
     end;
 $$ LANGUAGE plpgsql;
 
-
+--<6>
 create or replace function find_instructors(_course_id char(20),_session_date date, start_hour integer )
 	returns table(eid char(20), name text) as $$
 	declare 
@@ -194,7 +195,7 @@ create or replace function find_instructors(_course_id char(20),_session_date da
 	end;
 $$ language plpgsql;
 
-
+--<7>
 create or replace function get_available_instructors(_course_id char(20),_start_date date, _end_date date )
 	returns table(eid char(20), name text, totalHour integer, freeDate date, freeHour integer[]) as $$
 	declare 
@@ -657,16 +658,17 @@ $$ language plpgsql;
 			      
 -- <8>
 create or replace function find_rooms (f_session_date date, f_start_time integer, f_duration integer)
-returns table(room_id char(20)) as $$
+returns table(f_room_id char(20)) as $$
 declare
- curs cursor for (select S.rid from Sessions S where S.session_date = f_session_date and S.start_time = f_start_time and S.end_time = (f_start_time + f_duration));
+ curs cursor for (select room_id from Rooms EXCEPT select S.rid from Sessions S where (S.session_date = f_session_date)
+ and ((S.start_time >= f_start_time and S.start_time < (f_start_time + f_duration)) or (S.end_time > f_start_time and S.end_time <= (f_start_time + f_duration))) order by room_id asc);
  r record;
 begin
  open curs;
  LOOP
   fetch curs into r;
   exit when not found;
-  room_id := r.rid;
+  f_room_id := r.room_id;
   return next;
  end loop;
 
@@ -675,50 +677,42 @@ $$ language plpgsql;
 
 			   
 -- <9>
-create or replace function get_available_rooms (start_date date, end_date date)
-returns table (room_id char(20), seating_capacity integer, rday date, hours integer[]) as $$
+create or replace function get_available_rooms (f_start_date date, f_end_date date)
+returns table (f_room_id char(20), f_seating_capacity integer, f_rday date, f_hours integer[]) as $$
 declare
  curs CURSOR FOR (select room_id from Rooms order by room_id);
  r RECORD;
  period integer;
  this_date date;
+ i_month integer;
+ i_day integer;
+ index_i integer;
 begin
  OPEN curs;
  LOOP
   FETCH curs into r;
   EXIT WHEN NOT FOUND;
-  this_date = start_date;
+  this_date = f_start_date;
   LOOP
-   EXIT WHEN this_date = end_date + 1;
-   with Sessions1 as (select S.sid from Sessions S where S.room_id = r.room_id)
-   select sum (end_time - start_time) into period from Sessions S where S.sid = Sessions1.sid and S.session_date = this_date;
-   room_id := r.room_id;
-   seating_capacity := select seating_capacity from Rooms Rm where Rm.room_id = r.room_id;
-   rday := this_date;
-   hours[cast(this_date) as integer] := 7 - period;
+   EXIT WHEN this_date = f_end_date + 1;
+   select sum(end_time - start_time) into period from Sessions S where S.rid = r.room_id and S.session_date = this_date;
+   IF (period > 0) THEN
+    f_room_id := r.room_id;
+    f_seating_capacity := (select seating_capacity from Rooms Rm where Rm.room_id = r.room_id);
+    f_rday := this_date;
+    i_month := date_part('Month', this_date) :: integer;
+    i_day := date_part('Day', this_date) :: integer;
+    index_i := i_month * 100 + i_day;
+    f_hours[index_i] := 7 - period;
+   END IF;
    this_date := this_date + 1;
-  END LOOP
+  END LOOP;
   RETURN NEXT;
  END LOOP;
  CLOSE curs;
 end;
 $$ language plpgsql;
 
-	       
--- trigger for registration deadline
-CREATE TRIGGER registration_deadline_trigger
-BEFORE INSERT ON Offerings
-FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
-
-create or replace function registration_deadline_func() RETURNS TRIGGER AS $$
-begin
- select
- IF (NEW.start_date - NEW.registration_deadline < 10) THEN
-  NEW.registration_deadline := NEW.start_date - 10;
- END IF;
- RETURN NEW;
-end;
-$$ language plpgsql;
 
 	       
 -- <10> // find valid instructor
@@ -736,8 +730,8 @@ end;
 $$ language plpgsql;
 
 	       
-create or replace function add_course_offering
-(course_id char(20), fees double precision, launch_date date, registration_deadline date, target_number_registrations integer, eid char(10), session_date date, start_time int, room_id char(20)) as $$
+create or replace procedure add_course_offering
+(f_course_id char(20), f_fees double precision, f_launch_date date, f_registration_deadline date, f_target_number_registrations integer, f_eid char(10), f_session_date date, f_start_time int, f_room_id char(20)) as $$
 declare
  num_available_instructors integer;
  this_course_id char(20);
@@ -745,17 +739,16 @@ declare
  start_date date;
  end_date date;
 begin
- with Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = course_id))
- select count(*) into num_available_instructors from Specialized_instructors;
+ create view Specialized_instructors as (select S.eid from Specializes S where S.name = (select area_name from Courses C where C.course_id = f_course_id));
 
- IF (num_available_instructors >= 1) THEN
-  select seating_capacity into num_registration from Rooms R where R.room_id = room_id;
-  select min (session_date) into start_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
-  select max (session_date) into end_date from Sessions S where S.launch_date = launch_date and S.course_id = course_id;
+ IF ((select * from Specialized_instructors S where S.eid = f_eid) IS NOT NULL) THEN
+  select seating_capacity into num_registration from Rooms R where R.room_id = f_room_id;
+  select min (session_date) into start_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
+  select max (session_date) into end_date from Sessions S where S.launch_date = f_launch_date and S.course_id = f_course_id;
   insert into Offerings
-  values (launch_date, course_id, fees, target_number_registrations, registration_deadline, num_registration, start_date, end_date, eid);
+  values (f_launch_date, f_course_id, f_fees, f_target_number_registrations, f_registration_deadline, num_registration, f_start_date, f_end_date, f_eid);
   ELSE raise exception 'This instructor is not specialized in this course area.';
- END IF
+ END IF;
 end;
 
 $$ language plpgsql;
@@ -772,7 +765,10 @@ begin
  if pre_pid is null then pid := 'P00001';
  ELSE pid := concat('P', right(concat('00000', cast( ( cast(right(pre_pid, 5)as integer) + 1) as text )), 5));
  end if;
- insert into Course_packages values (pid, price, num, pname, start_date, end_date);
+ IF (start_date < end_date) THEN
+  insert into Course_packages values (pid, price, num, pname, start_date, end_date);
+ ELSE raise exception 'The end date cannot be before start date!';
+ END IF;
 end;
 $$ language plpgsql;
 
@@ -801,30 +797,41 @@ $$ language plpgsql;
 
 			       
 -- <13>
-create or replace function buy_course_package (cust_id, package_id) as $$
+create or replace procedure buy_course_package (f_cust_id char(20), f_package_id char(20)) as $$
 declare
  start_date date;
  end_date date;
- number text;
+ cnumber text;
+ remaining_num integer;
 begin
- select sale_start_date into start_date from Course_packages C where C.package_id = package_id;
- select sale_end_date into end_date from Course_packages C where C.package_id = package_id;
- select Cr.number into number from Credit_cards Cr where Cr.cust_id = cust_id;
- IF (CURRENT_DATE >= start_date and CURRENT_DATE <= end_date) THEN
+ select sale_start_date into start_date from Course_packages C where C.package_id = f_package_id;
+ select sale_end_date into end_date from Course_packages C where C.package_id = f_package_id;
+ select Cr.number into cnumber from Credit_cards Cr where Cr.cust_id = f_cust_id;
+ IF ((select min(B.num_remaining_redemptions) from Buys B where B.package_id = f_package_id) <= 0) THEN
+  remaining_num := -1;
+ ELSE select (num_free_registrations - 1) into remaining_num from Course_packages where package_id = f_package_id;
+ END IF;
+ IF ((select min(B.num_remaining_redemptions) from Buys B where B.package_id = f_package_id) >= 1) THEN
+   select (min(B.num_remaining_redemptions) - 1) into remaining_num from Buys B where B.package_id = f_package_id;
+ END IF;
+ IF (CURRENT_DATE >= start_date and CURRENT_DATE <= end_date and remaining_num >= 0 and (select * from Buys B where B.cust_id = f_cust_id and B.package_id = f_package_id) IS NULL) THEN
   insert into Buys
-  values (CURRENT_DATE, cust_id, number, package_id, 1);
- END IF
+  values (CURRENT_DATE, f_cust_id, cnumber, f_package_id, remaining_num);
+ END IF;
+ IF (remaining_num = -1) THEN
+  raise exception 'There is no remaining number of redemption.';
+ END IF;
 
 end;
 $$ language plpgsql;
 
 			       
--- <14>
-create or replace function get_my_course_package (cust_id)
-returns row_to_json(table (pname, pdate, price, num_free_sessions, num_of_sessions, course_name, session_date, session_start_hour)) as $$
+-- <14> convert to json
+create or replace function get_my_course_package (f_cust_id char(20))
+returns table (pname text, pdate date, price double precision, num_free_sessions integer, num_of_sessions integer, course_name text, session_date date, session_start_hour integer) as $$
 declare
  curs CURSOR FOR (select * from Course_packages CP
- where CP.package_id = (select package_id from Buys B where B.cust_id = cust_id));
+ where CP.package_id = (select package_id from Buys B where B.cust_id = f_cust_id));
  r RECORD;
  cid char (20);
 begin
@@ -833,16 +840,16 @@ begin
   FETCH curs INTO r;
   EXIT WHEN NOT FOUND;
   pname := r.name;
-  select B.buy_date into pdate from Buys B where B.package_id = r.package_id and B.cust_id = cust_id;
+  select B.buy_date into pdate from Buys B where B.package_id = r.package_id and B.cust_id = f_cust_id;
   price := r.price;
   num_free_sessions := r.num_free_registrations;
-  select B.num_remaining_redemptions into num_of_sessions from Buys B where B.package_id = r.package_id and B.cust_id = cust_id;
-  select R.course_id into cid from Redeems R where R.cust_id = cust_id and R.package_id = r.package_id;
+  select B.num_remaining_redemptions into num_of_sessions from Buys B where B.package_id = r.package_id and B.cust_id = f_cust_id;
+  select Re.course_id into cid from Redeems Re where Re.cust_id = f_cust_id and Re.package_id = r.package_id;
   select C.title into course_name from Courses C where C.course_id = cid;
   select S.session_date into session_date from Sessions S where S.course_id = cid;
   select S.start_time into session_start_hour from Sessions S where S.course_id = cid;
   return NEXT;
- END LOOP
+ END LOOP;
  CLOSE curs;
 end;
 $$ language plpgsql;
@@ -850,22 +857,22 @@ $$ language plpgsql;
 			
 -- <15>
 create or replace function get_available_course_offerings ()
-returns table (course_title, course_area, start_date, end_date, registration_deadline, course_fees, num_seats) as $$
+returns table (f_course_title text, f_course_area char(20), f_start_date date, f_end_date date, f_registration_deadline date, f_course_fees double precision, f_num_seats integer) as $$
 declare
- curs CURSOR FOR (select * from Offerings order by registration_deadline, title asc);
+ curs CURSOR FOR (select * from Offerings order by registration_deadline asc);
  r RECORD;
 begin
  OPEN curs;
  LOOP
   FETCH curs INTO r;
   EXIT WHEN NOT FOUND;
-  select C.title into course_title from Courses C where C.course_id = r.course_id;
-  select C.area_name into course_area from Courses C where C.course_id = r.course_id;
-  start_date := r.start_date;
-  end_date := r.end_date;
-  registration_deadline := r.registration_deadline;
-  course_fees := r.fees;
-  num_seats := r.seating_capacity - (select count(*) from Redeems R where R.course_id = r.course_id);
+  select Co.area_name into f_course_area from Courses Co where co.course_id = r.course_id;
+  select Co.title into f_course_title from Courses Co where co.course_id = r.course_id;
+  f_start_date := r.start_date;
+  f_end_date := r.end_date;
+  f_registration_deadline := r.registration_deadline;
+  f_course_fees := r.fees;
+  f_num_seats := r.seating_capacity - (select count(*) from Redeems Re where Re.course_id = r.course_id);
   RETURN NEXT;
  END LOOP;
  CLOSE curs;
@@ -1418,10 +1425,46 @@ CREATE OR REPLACE FUNCTION check_remove_employee() RETURNS TRIGGER AS $$
 	end;	
 $$ LANGUAGE plpgsql;
 
+
+create tigger check_package_num_trigger
+before insert on Buys
+for each row execute function check_package_num_func();
+
+create or replace function check_package_num_func() returns tigger 
+as $$
+declare 
+	num_remaining_session integer;
+	num_session_can_cancel integer;
+begin
+	num_remaining_session := (select num_remaining_redemptions from Buys where cust_id = new.cust_id);
+	num_session_can_cancel := (	select count(RS.sid) 
+						from (Redeems natural join Sessions) RS 
+						where RS.cust_id = new.cust_id 
+						and RS.session_date >= (current_date + '7 day'::interval));
+	if ((num_remaining_session > 0) or (num_remaining_session = 0 and num_session_can_cancel > 0)) then
+		raise notice 'You can have at most one active or partially active package.'; 
+		return null;
+	end if;
+end;
+$$ language plpgsql;
+					    
+					    
 CREATE TRIGGER remove_employees
 BEFORE update on employees
 FOR EACH ROW EXECUTE FUNCTION  check_remove_employee();
 
+-- trigger for registration deadline
+CREATE TRIGGER registration_deadline_trigger
+BEFORE INSERT ON Offerings
+FOR EACH ROW EXECUTE FUNCTION registration_deadline_func();
 
+create or replace function registration_deadline_func() RETURNS TRIGGER AS $$
+begin
+ IF (NEW.start_date - NEW.registration_deadline < 10) THEN
+  NEW.registration_deadline := NEW.start_date - 10;
+ END IF;
+ RETURN NEW;
+end;
+$$ language plpgsql;
 
 
